@@ -4,6 +4,10 @@ Lokální multiplayerová závodní hra Formule 1 pro 1 až 8 hráčů (nebo 1 h
 
 Verzi v9 poznáte v lobby podle nápisu „v9 – AI boti, 4 obtížnosti a plnohodnotné závody i v 1 hráči" a podle voliče počtu AI botů (0 až 7). Pokud tento nápis nevidíte, neběží tato verze, ale starý server nebo cachovaná stránka v Chromu, viz Řešení problémů níže.
 
+## Hraní online (Cloud Run)
+
+Hra běží veřejně na adrese https://f1-driving-370222114337.europe-central2.run.app — stačí ji otevřít v prohlížeči na telefonu nebo počítači, zadat jméno a hrát. Žádná instalace ani stejná Wi-Fi není potřeba. První načtení po delší pauze může pár sekund trvat, než se server probudí (škáluje se na nulu, když nikdo nehraje).
+
 ## Spuštění v aplikaci Termux (krok za krokem)
 
 Tento zip má složku `f1-driving/`, uvnitř jsou soubory `server.js`, `index.html`, `package.json` a `README.md`. Server umí načíst `index.html` jak z `f1-driving/public/index.html`, tak z `f1-driving/index.html`, takže funguje obě struktury.
