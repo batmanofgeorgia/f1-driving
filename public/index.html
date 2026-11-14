@@ -1,0 +1,2850 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>F1 Driving</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0b0f19;
+      color: #f9fafb;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      touch-action: none;
+    }
+
+    .screen {
+      display: none;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      overflow-y: auto;
+      padding: 14px;
+    }
+
+    .screen.active {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card {
+      background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 16px;
+      padding: 18px;
+      width: 100%;
+      max-width: 550px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    h1 {
+      font-size: 27px;
+      font-weight: 800;
+      text-align: center;
+      color: #f9fafb;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 13.5px;
+      margin-bottom: 14px;
+    }
+
+    .error-banner {
+      background: linear-gradient(180deg, #991b1b, #7f1d1d);
+      border: 1px solid #ef4444;
+      color: #fecaca;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: none;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    label {
+      display: block;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 11px 14px;
+      font-size: 16px;
+      border-radius: 10px;
+      border: 1.5px solid #475569;
+      background: #090d16;
+      color: #ffffff;
+      outline: none;
+      margin-bottom: 14px;
+      user-select: text;
+      -webkit-user-select: text;
+      box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6);
+    }
+
+    input[type="text"]:focus {
+      border-color: #e11d2e;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 12px 15px;
+      font-size: 15px;
+      font-weight: 700;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.08s;
+      color: #ffffff;
+      background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn:disabled {
+      background: #334155;
+      color: #64748b;
+      border-color: transparent;
+      box-shadow: none;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: linear-gradient(180deg, #475569 0%, #334155 100%);
+      color: #f3f4f6;
+    }
+
+    .btn-blue {
+      background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+    }
+
+    .btn-green {
+      background: linear-gradient(180deg, #22c55e 0%, #15803d 100%);
+    }
+
+    /* Lobby layout */
+    .lobby-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #94a3b8;
+      letter-spacing: 0.6px;
+      margin-bottom: 5px;
+    }
+
+    .players-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 7px;
+    }
+
+    .player-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #090d16;
+      border: 1px solid #334155;
+      padding: 7px 10px;
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-weight: 600;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+
+    .color-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      border: 2px solid rgba(255, 255, 255, 0.8);
+      box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+    }
+
+    .host-badge {
+      margin-left: auto;
+      font-size: 10.5px;
+      background: linear-gradient(180deg, #fde047, #eab308);
+      color: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 800;
+    }
+
+    .segmented-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .seg-btn {
+      padding: 8px 6px;
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 8px;
+      border: 1.5px solid #334155;
+      background: #090d16;
+      color: #cbd5e1;
+      cursor: pointer;
+      text-align: center;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+
+    .seg-btn.selected {
+      border-color: #f5c518;
+      background: linear-gradient(180deg, #334155, #1e293b);
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(245, 197, 24, 0.25);
+    }
+
+    .seg-btn:disabled {
+      opacity: 0.65;
+      cursor: default;
+    }
+
+    .track-preview-box {
+      background: #090d16;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 7px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+
+    #lobbyTrackCanvas {
+      width: 100%;
+      max-width: 310px;
+      aspect-ratio: 16 / 9;
+      background: #14361d;
+      border-radius: 6px;
+      display: block;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.7);
+    }
+
+    .lobby-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    /* Track drawing screen */
+    #drawScreen {
+      padding: 10px;
+      justify-content: flex-start;
+    }
+
+    .draw-container {
+      width: 100%;
+      max-width: 780px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .draw-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .draw-title {
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .draw-canvas-wrap {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #090d16;
+      border: 2px solid #334155;
+      border-radius: 10px;
+      padding: 4px;
+    }
+
+    #drawCanvas {
+      max-width: 100%;
+      max-height: 100%;
+      aspect-ratio: 16 / 9;
+      background: #1a3c24;
+      border-radius: 6px;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    .draw-controls {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    /* Race screen */
+    #raceScreen {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    #raceCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* HUD chips */
+    .hud-top {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      right: 152px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    .hud-chip {
+      background: linear-gradient(180deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.92) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      color: #f8fafc;
+      padding: 5px 9px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.55);
+    }
+
+    .hud-chip.warn {
+      background: linear-gradient(180deg, rgba(225, 29, 46, 0.95), rgba(153, 27, 27, 0.95));
+      border-color: #fca5a5;
+      color: #ffffff;
+    }
+
+    .hud-chip.exploded-banner {
+      background: linear-gradient(180deg, rgba(185, 28, 28, 0.96), rgba(127, 29, 29, 0.96));
+      border-color: #f5c518;
+      color: #fef08a;
+      font-size: 14px;
+    }
+
+    /* Minimap */
+    #minimapCanvas {
+      position: fixed;
+      top: 8px;
+      right: 8px;
+      width: 136px;
+      height: 77px;
+      background: rgba(9, 13, 22, 0.86);
+      border: 2px solid rgba(255, 255, 255, 0.28);
+      border-radius: 6px;
+      pointer-events: none;
+      z-index: 20;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.65);
+    }
+
+    /* Live leaderboard */
+    #leaderboard {
+      position: fixed;
+      top: 92px;
+      right: 8px;
+      width: 150px;
+      background: rgba(9, 13, 22, 0.86);
+      border: 2px solid rgba(255, 255, 255, 0.28);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #f8fafc;
+      pointer-events: none;
+      z-index: 20;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.65);
+    }
+    #leaderboard .lb-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 0;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    #leaderboard .lb-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    /* Start lights (semafor) */
+    #startLights {
+      position: fixed;
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: none;
+      gap: 10px;
+      pointer-events: none;
+      z-index: 25;
+    }
+    #startLights .light {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #334155;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+    }
+    #startLights .light.on {
+      background: #e11d2e;
+      box-shadow: 0 0 18px rgba(225, 29, 46, 0.9);
+    }
+
+    /* Countdown overlay */
+    #countdownBanner {
+      position: fixed;
+      top: 38%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 64px;
+      font-weight: 900;
+      color: #f5c518;
+      text-shadow: 0 6px 22px rgba(0, 0, 0, 0.9);
+      pointer-events: none;
+      z-index: 25;
+      display: none;
+    }
+
+    /* Touch steering zone: 62% of screen width */
+    #steeringZone {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      width: 62vw;
+      height: 68vh;
+      z-index: 30;
+      touch-action: none;
+    }
+
+    /* Steering wheel: 52 px from left edge, 28 px from bottom, size 160 x 160 px, opacity 0.2 idle, 0.6 held */
+    #steeringWheel {
+      position: fixed;
+      left: 52px;
+      bottom: 28px;
+      width: 160px;
+      height: 160px;
+      opacity: 0.2;
+      pointer-events: none;
+      z-index: 31;
+      transition: opacity 0.08s ease;
+      filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.7));
+    }
+
+    #steeringWheel.held {
+      opacity: 0.6;
+    }
+
+    /* Gas pedal: 175 x 210 px, font size 26 px, opacity 0.2 idle, 0.6 while pressed */
+    #gasPedal {
+      position: fixed;
+      right: 20px;
+      bottom: 24px;
+      width: 175px;
+      height: 210px;
+      font-size: 26px;
+      font-weight: 900;
+      color: #ffffff;
+      background: linear-gradient(180deg, #334155 0%, #1e293b 50%, #0f172a 100%);
+      border: 3px solid #94a3b8;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.2;
+      z-index: 32;
+      touch-action: none;
+      cursor: pointer;
+      transition: opacity 0.08s ease;
+      box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.25), 0 8px 18px rgba(0, 0, 0, 0.75);
+      letter-spacing: 1px;
+    }
+
+    #gasPedal.pressed {
+      opacity: 0.6;
+      border-color: #22c55e;
+    }
+
+    /* Finish screen table */
+    .results-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 14px 0;
+    }
+
+    .result-row {
+      background: #090d16;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .result-main {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .result-status {
+      margin-left: auto;
+      font-weight: 800;
+      color: #f5c518;
+    }
+
+    .result-laps {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Warning screen if opened via file:// -->
+  <div id="fileWarningScreen" class="screen">
+    <div class="card">
+      <h1>F1 Driving</h1>
+      <p class="subtitle" style="color:#fca5a5; font-size:16px; font-weight:700; margin-top:12px;">
+        Hru nelze spustit přímo jako stažený soubor (file://)!
+      </p>
+      <p style="font-size:15px; line-height:1.5; color:#e5e7eb; text-align:center;">
+        Otevřete aplikaci <strong>Termux</strong>, spusťte server příkazem <code>node server.js</code> a v prohlížeči Chrome otevřete adresu serveru (např. <code>http://localhost:3000</code> nebo vypsanou IP adresu telefonu).
+      </p>
+    </div>
+  </div>
+
+  <!-- 1. Join Screen -->
+  <div id="joinScreen" class="screen active">
+    <div class="card">
+      <h1>F1 Driving</h1>
+      <p class="subtitle">Soukromé závody Formule 1 na lokální Wi-Fi (1–8 hráčů, sólo i multiplayer)</p>
+      <div id="joinError" class="error-banner"></div>
+      <label for="playerNameInput">Vaše jméno (max. 20 znaků):</label>
+      <input type="text" id="playerNameInput" maxlength="20" placeholder="Hráč" value="Hráč" autocomplete="off">
+      <button id="joinBtn" class="btn">Připojit se</button>
+    </div>
+  </div>
+
+  <!-- 2. Lobby Screen -->
+  <div id="lobbyScreen" class="screen">
+    <div class="card">
+      <h1>F1 Driving</h1>
+      <p style="text-align:center; font-size:13px; color:#f5c518;">v9 – AI boti, 4 obtížnosti a plnohodnotné závody i v 1 hráči</p>
+      <div id="lobbyError" class="error-banner"></div>
+
+      <div class="lobby-grid">
+        <div>
+          <div class="section-title">Jezdci na roštu (<span id="playerCountLabel">0</span> / 8)</div>
+          <div id="playersList" class="players-list"></div>
+        </div>
+
+        <div>
+          <div class="section-title">Počet AI botů (0 až 7, do max. 8 aut)</div>
+          <div class="segmented-group" style="grid-template-columns: repeat(8, 1fr);">
+            <button class="seg-btn bot-count-btn" data-bots="0">0</button>
+            <button class="seg-btn bot-count-btn" data-bots="1">1</button>
+            <button class="seg-btn bot-count-btn" data-bots="2">2</button>
+            <button class="seg-btn bot-count-btn" data-bots="3">3</button>
+            <button class="seg-btn bot-count-btn" data-bots="4">4</button>
+            <button class="seg-btn bot-count-btn" data-bots="5">5</button>
+            <button class="seg-btn bot-count-btn" data-bots="6">6</button>
+            <button class="seg-btn bot-count-btn" data-bots="7">7</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-title">Obtížnost AI botů</div>
+          <div class="segmented-group" style="grid-template-columns: repeat(4, 1fr);">
+            <button class="seg-btn bot-diff-btn" data-bot-diff="easy">Lehká</button>
+            <button class="seg-btn bot-diff-btn" data-bot-diff="medium">Střední</button>
+            <button class="seg-btn bot-diff-btn" data-bot-diff="hard">Těžká</button>
+            <button class="seg-btn bot-diff-btn" data-bot-diff="mixed">Smíšená</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-title">Herní režim</div>
+          <div class="segmented-group">
+            <button class="seg-btn mode-btn" data-mode="time">Časovka</button>
+            <button class="seg-btn mode-btn" data-mode="elimination">Vyřazování</button>
+            <button class="seg-btn mode-btn" data-mode="explosion">Výbuch</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-title">Rychlost formulí</div>
+          <div class="segmented-group">
+            <button class="seg-btn speed-btn" data-speed="slow">Pomalé</button>
+            <button class="seg-btn speed-btn" data-speed="normal">Normální</button>
+            <button class="seg-btn speed-btn" data-speed="fast">Rychlé</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-title">Počasí na trati</div>
+          <div class="segmented-group">
+            <button class="seg-btn weather-btn" data-weather="sunny">Slunečno</button>
+            <button class="seg-btn weather-btn" data-weather="rain">Déšť</button>
+            <button class="seg-btn weather-btn" data-weather="foggy">Mlha</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-title">Velikost mapy</div>
+          <div class="segmented-group">
+            <button class="seg-btn map-size-btn" data-map-size="standard">Standardní 1600 × 900</button>
+            <button class="seg-btn map-size-btn" data-map-size="large">Velká 2400 × 1350</button>
+          </div>
+          <div style="text-align:center; font-size:12px; color:#94a3b8;">Změna velikosti mapy zruší nakreslenou trať, hostitel ji nakreslí znovu.</div>
+        </div>
+
+        <div>
+          <div class="section-title">Kvalifikace před závodem</div>
+          <div class="segmented-group">
+            <button class="seg-btn qual-btn" data-qualifying="false">Rovnou závod</button>
+            <button class="seg-btn qual-btn" data-qualifying="true">Kvalifikace (1 kolo)</button>
+          </div>
+          <div style="text-align:center; font-size:12px; color:#94a3b8;">Kvalifikace určí startovní rošt, pak se automaticky jede hlavní závod.</div>
+        </div>
+
+        <div>
+          <div class="section-title">Oblíbené tratě (jen na tomto telefonu)</div>
+          <input id="favTrackName" type="text" maxlength="30" placeholder="Název tratě" style="width:100%; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.25); background:#0f172a; color:#f8fafc; margin-bottom:6px;">
+          <button id="saveFavBtn" class="btn btn-blue" style="width:100%; margin-bottom:6px;">Uložit aktuální trať jako oblíbenou</button>
+          <div id="favTracksList"></div>
+        </div>
+
+        <div>
+          <div class="section-title">Zvuk motoru (jen pro tebe)</div>
+          <div class="segmented-group">
+            <button class="seg-btn sound-preset-btn" data-sound-preset="f1">F1</button>
+            <button class="seg-btn sound-preset-btn" data-sound-preset="v8">V8</button>
+            <button class="seg-btn sound-preset-btn" data-sound-preset="electro">Elektro</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-title">Závodní trať (<span id="trackStatusLabel">nenakreslena</span>)</div>
+          <div class="track-preview-box">
+            <canvas id="lobbyTrackCanvas" width="320" height="180"></canvas>
+          </div>
+        </div>
+
+        <div id="hostLobbyControls" class="lobby-actions">
+          <button id="openDrawBtn" class="btn btn-blue">Nakreslit trať</button>
+          <button id="startRaceBtn" class="btn btn-green" disabled>Start závodu</button>
+        </div>
+        <div id="soloNote" style="text-align:center; font-size:13px; color:#f5c518; display:none;">
+          Jedeš sám bez botů: je možná jen Časovka na 3 kola. Přidej AI boty pro Vyřazování, Výbuch a Kvalifikaci!
+        </div>
+        <div id="weatherNote" style="text-align:center; font-size:13px; color:#94a3b8;">
+          Déšť: grip 0,6× a maximální rychlost 0,9×. Mlha: viditelnost 50 % kolem vlastního auta.
+        </div>
+        <div id="guestLobbyNotice" style="text-align:center; font-size:13px; color:#94a3b8; display:none;">
+          Čeká se na hostitele, až nastaví trať a odstartuje závod…
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Track Drawing Screen -->
+  <div id="drawScreen" class="screen">
+    <div class="draw-container">
+      <div class="draw-header">
+        <div class="draw-title">F1 Driving — Nakreslete středovou čáru trati</div>
+        <div style="font-size:12px; color:#94a3b8;">Svět 1600 × 900, trať se automaticky uzavře do smyčky</div>
+      </div>
+      <div id="drawError" class="error-banner"></div>
+      <div class="draw-canvas-wrap">
+        <canvas id="drawCanvas" width="1600" height="900"></canvas>
+      </div>
+      <div class="draw-controls">
+        <button id="sampleTrackBtn" class="btn btn-blue">Ukázková trať</button>
+        <button id="clearTrackBtn" class="btn btn-secondary">Vymazat</button>
+        <button id="cancelDrawBtn" class="btn btn-secondary">Zpět do lobby</button>
+        <button id="saveTrackBtn" class="btn btn-green">Uložit trať</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Race Screen -->
+  <div id="raceScreen" class="screen">
+    <canvas id="raceCanvas"></canvas>
+
+    <div class="hud-top">
+      <div id="hudPos" class="hud-chip">Pozice 1 / 2</div>
+      <div id="hudLap" class="hud-chip">Kolo 1 / 3</div>
+      <div id="hudLapTime" class="hud-chip">Kolo: 0:00.0</div>
+      <div id="hudTotalTime" class="hud-chip">Celkem: 0:00.0</div>
+      <div id="hudSpeed" class="hud-chip">0 km/h</div>
+      <button id="soundToggleBtn" class="hud-chip" style="cursor:pointer; pointer-events:auto;">Zvuk: zapnuto</button>
+      <div id="hudOffLap" class="hud-chip">Mimo trať toto kolo: 0.0 s</div>
+      <div id="hudOffWarn" class="hud-chip warn" style="display:none;">MIMO TRAŤ</div>
+      <div id="hudExplodedWarn" class="hud-chip exploded-banner" style="display:none;">VYBOUCHL JSI — sleduješ závod</div>
+      <div id="hudQual" class="hud-chip" style="display:none; background:linear-gradient(180deg, rgba(168,85,247,0.95), rgba(126,34,206,0.95));">KVALIFIKACE – 1 kolo</div>
+    </div>
+
+    <canvas id="minimapCanvas" width="160" height="90"></canvas>
+    <div id="leaderboard"></div>
+    <div id="startLights"><div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div><div class="light"></div></div>
+    <div id="countdownBanner">3</div>
+
+    <!-- Steering touch zone (62% width) and realistic 3D steering wheel (160x160 at left:52px, bottom:28px) -->
+    <div id="steeringZone"></div>
+    <svg id="steeringWheel" viewBox="0 0 160 160">
+      <defs>
+        <radialGradient id="rimGrad" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#475569"/>
+          <stop offset="55%" stop-color="#1e293b"/>
+          <stop offset="100%" stop-color="#090d16"/>
+        </radialGradient>
+        <linearGradient id="spokeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#cbd5e1"/>
+          <stop offset="50%" stop-color="#64748b"/>
+          <stop offset="100%" stop-color="#1e293b"/>
+        </linearGradient>
+      </defs>
+      <circle cx="80" cy="80" r="70" fill="none" stroke="url(#rimGrad)" stroke-width="15"/>
+      <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="2"/>
+      <line x1="16" y1="80" x2="144" y2="80" stroke="url(#spokeGrad)" stroke-width="11"/>
+      <line x1="80" y1="80" x2="80" y2="144" stroke="url(#spokeGrad)" stroke-width="11"/>
+      <circle cx="80" cy="80" r="22" fill="#0f172a" stroke="#94a3b8" stroke-width="3.5"/>
+      <circle cx="80" cy="80" r="8" fill="#334155"/>
+      <!-- Yellow marker on the wheel showing the driving direction (pointing right at angle 0, rotated by steeringHeading) -->
+      <g id="wheelRotor" transform="rotate(0 80 80)">
+        <polygon points="155,80 126,67 126,93" fill="#f5c518" stroke="#090d16" stroke-width="2.5"/>
+        <rect x="131" y="73.5" width="19" height="13" rx="3" fill="#f5c518" stroke="#090d16" stroke-width="1.5"/>
+      </g>
+    </svg>
+
+    <!-- Gas pedal (175 x 210 px, font-size 26px) -->
+    <div id="gasPedal">PLYN</div>
+  </div>
+
+  <!-- 5. Finish Screen -->
+  <div id="finishScreen" class="screen">
+    <div class="card">
+      <h1 id="finishTitle">F1 Driving — Výsledky závodu</h1>
+      <div id="qualNote" style="text-align:center; font-size:13px; color:#f5c518; display:none;">Hlavní závod startuje za chvíli se startovním roštem podle kvalifikace…</div>
+      <div id="resultsList" class="results-list"></div>
+      <button id="backToLobbyBtn" class="btn btn-green" style="display:none;">Zpět do lobby</button>
+      <div id="finishGuestWait" style="text-align:center; font-size:13px; color:#94a3b8; display:none;">
+        Čeká se na hostitele pro návrat do lobby…
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      let WORLD_W = 1600;
+      let WORLD_H = 900;
+      const ROAD_HALF = 58;
+      const INTERP_FACTOR = 0.45;
+
+      // Screens
+      const screens = {
+        fileWarning: document.getElementById('fileWarningScreen'),
+        join: document.getElementById('joinScreen'),
+        lobby: document.getElementById('lobbyScreen'),
+        draw: document.getElementById('drawScreen'),
+        race: document.getElementById('raceScreen'),
+        finish: document.getElementById('finishScreen')
+      };
+
+      function showScreen(name) {
+        Object.keys(screens).forEach(k => {
+          screens[k].classList.toggle('active', k === name);
+        });
+        if (name === 'race') {
+          resizeRaceCanvas();
+        }
+      }
+
+      // Check if opened directly as file://
+      if (window.location.protocol === 'file:') {
+        showScreen('fileWarning');
+        return;
+      }
+
+      // Client state
+      let ws = null;
+      let myId = null;
+      let isHost = false;
+      let myColor = '#e11d2e';
+      let lobbyState = {
+        players: [],
+        mode: 'time',
+        speed: 'normal',
+        weather: 'sunny',
+        hasTrack: false,
+        phase: 'lobby'
+      };
+      let trackData = null;
+
+      // Pre-rendered 3D world canvas for high-FPS realistic rendering on phones
+      let bakedWorldCanvas = null;
+      let bakedWorldWeather = null;
+
+      // Drawing state
+      let rawDrawPoints = [];
+      let isDrawingTrack = false;
+
+      // Race & Interpolation state
+      let serverState = null;
+      let renderCars = new Map(); // id -> { x, y, heading, ... }
+      let offTrackNearest = null; // {x, y, dist} pro zive vlastni auto mimo trat, jinak null
+      let tireParticles = []; // realistic water spray / dust / tire smoke particles
+      let rainDrops = [];
+      let fogClouds = [];
+      let goBannerUntil = 0;
+
+      // Initialize weather particles
+      for (let i = 0; i < 140; i++) {
+        rainDrops.push({
+          x: Math.random() * 1200,
+          y: Math.random() * 900,
+          len: 16 + Math.random() * 14,
+          speed: 650 + Math.random() * 250
+        });
+      }
+      for (let i = 0; i < 18; i++) {
+        fogClouds.push({
+          x: Math.random() * WORLD_W,
+          y: Math.random() * WORLD_H,
+          r: 180 + Math.random() * 220,
+          vx: 8 + Math.random() * 10,
+          vy: -3 + Math.random() * 6,
+          alpha: 0.14 + Math.random() * 0.14
+        });
+      }
+
+      // Steering & Gas state
+      let steeringHeading = 0;
+      let gasPressed = false;
+      let steeringPointerId = null;
+      let gasPointerIds = new Set();
+      const keysDown = { left: false, right: false, up: false };
+
+      // DOM elements
+      const joinError = document.getElementById('joinError');
+      const lobbyError = document.getElementById('lobbyError');
+      const drawError = document.getElementById('drawError');
+      const playerNameInput = document.getElementById('playerNameInput');
+      const joinBtn = document.getElementById('joinBtn');
+      const playerCountLabel = document.getElementById('playerCountLabel');
+      const playersList = document.getElementById('playersList');
+      const trackStatusLabel = document.getElementById('trackStatusLabel');
+      const lobbyTrackCanvas = document.getElementById('lobbyTrackCanvas');
+      const hostLobbyControls = document.getElementById('hostLobbyControls');
+      const guestLobbyNotice = document.getElementById('guestLobbyNotice');
+      const openDrawBtn = document.getElementById('openDrawBtn');
+      const startRaceBtn = document.getElementById('startRaceBtn');
+
+      const drawCanvas = document.getElementById('drawCanvas');
+      const sampleTrackBtn = document.getElementById('sampleTrackBtn');
+      const clearTrackBtn = document.getElementById('clearTrackBtn');
+      const cancelDrawBtn = document.getElementById('cancelDrawBtn');
+      const saveTrackBtn = document.getElementById('saveTrackBtn');
+
+      const raceCanvas = document.getElementById('raceCanvas');
+      const minimapCanvas = document.getElementById('minimapCanvas');
+      const countdownBanner = document.getElementById('countdownBanner');
+      const steeringZone = document.getElementById('steeringZone');
+      const steeringWheel = document.getElementById('steeringWheel');
+      const wheelRotor = document.getElementById('wheelRotor');
+      const gasPedal = document.getElementById('gasPedal');
+
+      const hudPos = document.getElementById('hudPos');
+      const hudLap = document.getElementById('hudLap');
+      const hudLapTime = document.getElementById('hudLapTime');
+      const hudTotalTime = document.getElementById('hudTotalTime');
+      const hudSpeed = document.getElementById('hudSpeed');
+      const hudOffLap = document.getElementById('hudOffLap');
+      const hudOffWarn = document.getElementById('hudOffWarn');
+      const hudExplodedWarn = document.getElementById('hudExplodedWarn');
+      const leaderboardEl = document.getElementById('leaderboard');
+      const startLightsEl = document.getElementById('startLights');
+      function updateLeaderboard() {
+        if (!leaderboardEl || !serverState || !serverState.cars) return;
+        const sorted = serverState.cars.slice().sort(function(a, b) { return (a.rank || 99) - (b.rank || 99); });
+        leaderboardEl.innerHTML = '';
+        sorted.forEach(function(car) {
+          const row = document.createElement('div');
+          row.className = 'lb-row';
+          const dot = document.createElement('span');
+          dot.className = 'lb-dot'; dot.style.backgroundColor = car.color || '#fff';
+          const txt = document.createElement('span');
+          let status = 'Kolo ' + Math.min(3, car.lap || 1);
+          if (car.finished) status = 'DOJEL';
+          else if (car.eliminated) status = 'VYŘAZEN';
+          else if (car.exploded) status = 'VYBOUCHL';
+          let lbText = (car.rank || '?') + '. ' + car.name + (car.id === myId ? ' (vy)' : '') + ' – ' + status;
+          if (car.bestLap) lbText += ' • Nej. ' + formatRaceTime(car.bestLap);
+          txt.textContent = lbText;
+          if (car.id === myId) row.style.fontWeight = '900';
+          row.appendChild(dot); row.appendChild(txt); leaderboardEl.appendChild(row);
+        });
+      }
+
+      const resultsList = document.getElementById('resultsList');
+      // Zvuk v6: WebAudio, zadne externi soubory.
+      // Motor: 3 oscilatory + zkresleni + lowpass. Predvolby: F1 (vysoke otacky),
+      // V8 (hluboky), Elektro (tichy, plynuly, bez razeni). Razeni: u F1/V8 otacky
+      // v ramci prevodoveho stupne rostou a pri prerazeni spadnou, jako u skutecneho motoru.
+      const SOUND_PRESETS = {
+        f1: { base: 55, speedCoeff: 0.85, gasBoost: 25, filterBase: 400, filterCoeff: 4, gainGas: 0.22, gainIdle: 0.10, dist: 2.5, gears: true, wave1: 'sawtooth', wave2: 'sawtooth', wave3: 'square' },
+        v8: { base: 38, speedCoeff: 0.55, gasBoost: 18, filterBase: 250, filterCoeff: 2.5, gainGas: 0.24, gainIdle: 0.12, dist: 3.5, gears: true, wave1: 'sawtooth', wave2: 'square', wave3: 'square' },
+        electro: { base: 80, speedCoeff: 1.1, gasBoost: 30, filterBase: 600, filterCoeff: 5, gainGas: 0.14, gainIdle: 0.05, dist: 0, gears: false, wave1: 'sine', wave2: 'sine', wave3: 'triangle' }
+      };
+      let soundPreset = 'f1';
+      let audioCtx = null, engineOsc = null, engineOsc2 = null, engineOsc3 = null;
+      let engineGain = null, engineFilter = null, engineShaper = null, rainGain = null, rainSrc = null;
+      let soundOn = true, lastCountdownNum = null;
+      let playedExplodedIds = new Set();
+      let lastCollisionSoundAt = {};
+      const soundToggleBtn = document.getElementById('soundToggleBtn');
+      function makeDistortionCurve(amount) {
+        const n = 256, curve = new Float32Array(n);
+        const k = (amount === undefined ? 2.5 : amount);
+        for (let i = 0; i < n; i++) {
+          const x = (i * 2 / (n - 1)) - 1;
+          curve[i] = k === 0 ? x : Math.tanh(k * x);
+        }
+        return curve;
+      }
+      function applySoundPreset() {
+        const p = SOUND_PRESETS[soundPreset] || SOUND_PRESETS.f1;
+        if (engineOsc) engineOsc.type = p.wave1;
+        if (engineOsc2) engineOsc2.type = p.wave2;
+        if (engineOsc3) engineOsc3.type = p.wave3;
+        if (engineShaper && audioCtx) engineShaper.curve = makeDistortionCurve(p.dist);
+        document.querySelectorAll('.sound-preset-btn').forEach(function(btn) {
+          btn.classList.toggle('selected', btn.dataset.soundPreset === soundPreset);
+        });
+      }
+      function ensureAudio() {
+        if (!audioCtx) {
+          try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+        }
+        if (audioCtx.state === 'suspended') { audioCtx.resume().catch(function(){}); }
+        if (!engineOsc && audioCtx) {
+          const shaper = audioCtx.createWaveShaper();
+          engineShaper = shaper;
+          shaper.curve = makeDistortionCurve((SOUND_PRESETS[soundPreset] || SOUND_PRESETS.f1).dist);
+          engineFilter = audioCtx.createBiquadFilter();
+          engineFilter.type = 'lowpass'; engineFilter.frequency.value = 500;
+          engineGain = audioCtx.createGain(); engineGain.gain.value = 0;
+          const comp = audioCtx.createDynamicsCompressor();
+          comp.threshold.value = -18; comp.ratio.value = 6;
+          engineOsc = audioCtx.createOscillator(); engineOsc.type = 'sawtooth';
+          engineOsc2 = audioCtx.createOscillator(); engineOsc2.type = 'sawtooth';
+          engineOsc3 = audioCtx.createOscillator(); engineOsc3.type = 'square';
+          const g1 = audioCtx.createGain(); g1.gain.value = 0.6;
+          const g2 = audioCtx.createGain(); g2.gain.value = 0.35;
+          const g3 = audioCtx.createGain(); g3.gain.value = 0.5;
+          engineOsc.connect(g1); g1.connect(shaper);
+          engineOsc2.connect(g2); g2.connect(shaper);
+          engineOsc3.connect(g3); g3.connect(shaper);
+          shaper.connect(engineFilter); engineFilter.connect(engineGain); engineGain.connect(comp); comp.connect(audioCtx.destination);
+          engineOsc.start(); engineOsc2.start(); engineOsc3.start();
+          // Dest: bily sum, smycka, gain 0 dokud se nezapne destem.
+          const len = audioCtx.sampleRate * 2;
+          const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+          const data = buf.getChannelData(0);
+          for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+          rainSrc = audioCtx.createBufferSource(); rainSrc.buffer = buf; rainSrc.loop = true;
+          const rainFilter = audioCtx.createBiquadFilter();
+          rainFilter.type = 'lowpass'; rainFilter.frequency.value = 1400;
+          rainGain = audioCtx.createGain(); rainGain.gain.value = 0;
+          rainSrc.connect(rainFilter); rainFilter.connect(rainGain); rainGain.connect(audioCtx.destination);
+          rainSrc.start();
+        }
+      }
+      function playTone(freq, dur, type, vol, delay) {
+        if (!soundOn || !audioCtx) return;
+        const t0 = audioCtx.currentTime + (delay || 0);
+        const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
+        osc.type = type || 'sine'; osc.frequency.value = freq;
+        g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol || 0.15, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+        osc.connect(g); g.connect(audioCtx.destination); osc.start(t0); osc.stop(t0 + dur + 0.05);
+      }
+      function updateEngineSound(speedKmh, gas, racing) {
+        if (!audioCtx || !engineGain || !engineOsc) return;
+        if (!soundOn || !racing) { engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1); return; }
+        const p = SOUND_PRESETS[soundPreset] || SOUND_PRESETS.f1;
+        const spd = Math.max(0, Number(speedKmh) || 0);
+        let f;
+        if (p.gears) {
+          // Razeni: prevodovy stupen 35 km/h, otacky v ramci stupne rostou o 90 Hz a pri prerazeni spadnou.
+          const within = spd % 35;
+          f = p.base + (within / 35) * 90 + (gas ? p.gasBoost : 0);
+        } else {
+          f = p.base + spd * p.speedCoeff + (gas ? p.gasBoost : 0);
+        }
+        engineOsc.frequency.setTargetAtTime(f, audioCtx.currentTime, 0.08);
+        if (engineOsc2) engineOsc2.frequency.setTargetAtTime(f * 2, audioCtx.currentTime, 0.08);
+        if (engineOsc3) engineOsc3.frequency.setTargetAtTime(f * 0.5, audioCtx.currentTime, 0.08);
+        engineFilter.frequency.setTargetAtTime(p.filterBase + spd * p.filterCoeff, audioCtx.currentTime, 0.08);
+        engineGain.gain.setTargetAtTime(gas ? p.gainGas : p.gainIdle, audioCtx.currentTime, 0.08);
+      }
+      function playNoiseBurst(dur, vol, filterFreq) {
+        if (!soundOn || !audioCtx) return;
+        const len = Math.max(1, Math.floor(audioCtx.sampleRate * dur));
+        const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+        const src = audioCtx.createBufferSource(); src.buffer = buf;
+        const filt = audioCtx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = filterFreq || 800;
+        const g = audioCtx.createGain(); g.gain.value = vol || 0.2;
+        src.connect(filt); filt.connect(g); g.connect(audioCtx.destination); src.start();
+      }
+      function playCollisionSound() { playNoiseBurst(0.15, 0.22, 700); playTone(90, 0.15, 'sine', 0.18, 0); }
+      function playExplosionSound() { playNoiseBurst(0.6, 0.32, 500); playTone(60, 0.5, 'sine', 0.25, 0); playTone(45, 0.6, 'sine', 0.2, 0.1); }
+      function updateRainSound(weather, active) {
+        if (!audioCtx || !rainGain) return;
+        const on = soundOn && active && weather === 'rain';
+        rainGain.gain.setTargetAtTime(on ? 0.10 : 0, audioCtx.currentTime, 0.3);
+      }
+      if (soundToggleBtn) {
+        soundToggleBtn.addEventListener('click', function() {
+          soundOn = !soundOn;
+          soundToggleBtn.textContent = soundOn ? 'Zvuk: zapnuto' : 'Zvuk: vypnuto';
+          if (!soundOn && engineGain && audioCtx) engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+          if (!soundOn && rainGain && audioCtx) rainGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+        });
+      }
+
+      const backToLobbyBtn = document.getElementById('backToLobbyBtn');
+      const finishGuestWait = document.getElementById('finishGuestWait');
+
+      function showBannerError(el, msg) {
+        if (!msg) {
+          el.style.display = 'none';
+          el.textContent = '';
+          return;
+        }
+        el.textContent = msg;
+        el.style.display = 'block';
+      }
+
+      function formatRaceTime(sec) {
+        const s = Math.max(0, Number(sec) || 0);
+        const mins = Math.floor(s / 60);
+        const rem = (s % 60).toFixed(1);
+        const padded = rem < 10 ? '0' + rem : rem;
+        return mins + ':' + padded;
+      }
+
+      function normalizeAngle(a) {
+        while (a > Math.PI) a -= 2 * Math.PI;
+        while (a < -Math.PI) a += 2 * Math.PI;
+        return a;
+      }
+
+      function lerpAngle(from, to, t) {
+        return normalizeAngle(from + normalizeAngle(to - from) * t);
+      }
+
+      // Color shading helper for 3D metallic car body gradients
+      function shadeHexColor(hex, percent) {
+        const clean = hex.replace('#', '');
+        const num = parseInt(clean, 16);
+        const r = Math.min(255, Math.max(0, ((num >> 16) & 0xff) + percent));
+        const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + percent));
+        const b = Math.min(255, Math.max(0, (num & 0xff) + percent));
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+
+      // Connect WebSocket and join
+      function connectAndJoin() {
+        showBannerError(joinError, '');
+        const rawName = (playerNameInput.value || '').trim().slice(0, 20) || 'Hráč';
+        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = proto + '//' + window.location.host;
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+
+        ws = new WebSocket(wsUrl);
+
+        ws.addEventListener('open', () => {
+          ws.send(JSON.stringify({ type: 'join', name: rawName }));
+        });
+
+        ws.addEventListener('message', (ev) => {
+          let msg;
+          try {
+            msg = JSON.parse(ev.data);
+          } catch (e) {
+            return;
+          }
+          handleServerMessage(msg);
+        });
+
+        ws.addEventListener('close', () => {
+          if (myId !== null) {
+            myId = null;
+            showScreen('join');
+            showBannerError(joinError, 'Spojení se serverem bylo ukončeno.');
+          }
+        });
+
+        ws.addEventListener('error', () => {
+          showBannerError(joinError, 'Nepodařilo se připojit k serveru.');
+        });
+      }
+
+      joinBtn.addEventListener('click', connectAndJoin);
+      joinBtn.addEventListener('click', ensureAudio);
+      playerNameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') connectAndJoin();
+      });
+
+      function sendMsg(obj) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(obj));
+        }
+      }
+
+      // Handle incoming server messages
+      function handleServerMessage(msg) {
+        if (msg.type === 'welcome') {
+          myId = msg.id;
+          isHost = Boolean(msg.isHost);
+          myColor = msg.color || '#e11d2e';
+          if (screens.join.classList.contains('active')) {
+            showScreen('lobby');
+          }
+          updateLobbyUI();
+          return;
+        }
+
+        if (msg.type === 'error') {
+          if (myId === null) {
+            showBannerError(joinError, msg.message);
+          } else if (screens.lobby.classList.contains('active')) {
+            showBannerError(lobbyError, msg.message);
+          } else if (screens.draw.classList.contains('active')) {
+            showBannerError(drawError, msg.message);
+          }
+          return;
+        }
+
+        if (msg.type === 'lobby') {
+          const prevWeather = lobbyState.weather;
+          const prevWorldW = WORLD_W, prevWorldH = WORLD_H;
+          lobbyState = msg;
+          if (!lobbyState.weather) lobbyState.weather = 'sunny';
+          if (msg.worldW && msg.worldH && (msg.worldW !== prevWorldW || msg.worldH !== prevWorldH)) {
+            WORLD_W = msg.worldW; WORLD_H = msg.worldH;
+            if (drawCanvas) { drawCanvas.width = WORLD_W; drawCanvas.height = WORLD_H; }
+            if (!msg.hasTrack) { trackData = null; bakedWorldCanvas = null; bakedWorldWeather = null; rawDrawPoints = []; }
+            if (screens.draw.classList.contains('active')) renderDrawCanvas();
+          }
+          const me = (msg.players || []).find(p => p.id === myId);
+          if (me) {
+            isHost = Boolean(me.isHost);
+          }
+          if (prevWeather !== lobbyState.weather && trackData) {
+            bakeRealistic3DTrack(trackData, lobbyState.weather);
+            drawTrackPreview(lobbyTrackCanvas, trackData);
+          }
+          updateLobbyUI();
+          if (msg.phase === 'lobby' && (screens.race.classList.contains('active') || screens.finish.classList.contains('active'))) {
+            showScreen('lobby');
+          }
+          return;
+        }
+
+        if (msg.type === 'track') {
+          trackData = msg;
+          lobbyState.hasTrack = true;
+          showBannerError(drawError, '');
+          bakeRealistic3DTrack(trackData, lobbyState.weather || 'sunny');
+          drawTrackPreview(lobbyTrackCanvas, trackData);
+          drawMinimapBase();
+          if (screens.draw.classList.contains('active')) {
+            showScreen('lobby');
+          }
+          updateLobbyUI();
+          return;
+        }
+
+        if (msg.type === 'trackError') {
+          const text = Array.isArray(msg.errors) ? msg.errors.join(' ') : 'Neplatná trať.';
+          showBannerError(drawError, text);
+          return;
+        }
+
+        if (msg.type === 'state') {
+          const prevPhase = serverState ? serverState.phase : null;
+          const prevQual = serverState ? serverState.isQualifying : null;
+          serverState = msg;
+          if (msg.phase === 'countdown' && prevPhase !== 'countdown') playedExplodedIds.clear();
+          if (msg.isQualifying !== prevQual) playedExplodedIds.clear();
+          const activeWeather = msg.weather || lobbyState.weather || 'sunny';
+          if (trackData && (!bakedWorldCanvas || bakedWorldWeather !== activeWeather)) {
+            bakeRealistic3DTrack(trackData, activeWeather);
+          }
+
+          if (msg.phase === 'countdown' || msg.phase === 'race') {
+            if (!screens.race.classList.contains('active')) {
+              renderCars.clear();
+              tireParticles = [];
+              showScreen('race');
+              if (trackData && trackData.center && trackData.center.length >= 2) {
+                const pPrev = trackData.center[trackData.center.length - 1];
+                const pNext = trackData.center[1];
+                steeringHeading = Math.atan2(pNext.y - pPrev.y, pNext.x - pPrev.x);
+                updateWheelVisual();
+              }
+            }
+          }
+
+          if (prevPhase === 'countdown' && msg.phase === 'race') {
+            goBannerUntil = performance.now() + 900;
+            playTone(880, 0.4, 'sine', 0.2, 0);
+          }
+
+          const activeIds = new Set();
+          for (const sc of msg.cars || []) {
+            activeIds.add(sc.id);
+            const rc = renderCars.get(sc.id);
+            if (!rc || prevPhase !== msg.phase || sc.finished) {
+              // When a car finishes, snap immediately to its exact finish-line coordinates
+              renderCars.set(sc.id, { ...sc });
+              if (sc.id === myId && prevPhase === null) {
+                steeringHeading = sc.heading;
+                updateWheelVisual();
+              }
+            } else {
+              rc.x = rc.x + (sc.x - rc.x) * INTERP_FACTOR;
+              rc.y = rc.y + (sc.y - rc.y) * INTERP_FACTOR;
+              rc.heading = lerpAngle(rc.heading, sc.heading, INTERP_FACTOR);
+              rc.name = sc.name;
+              rc.color = sc.color;
+              rc.lap = sc.lap;
+              rc.lapTime = sc.lapTime;
+              rc.elapsed = sc.elapsed;
+              rc.finished = sc.finished;
+              rc.eliminated = sc.eliminated;
+              rc.exploded = sc.exploded;
+              rc.off = sc.off;
+              rc.offSecondsLap = sc.offSecondsLap;
+              rc.speedKmh = sc.speedKmh;
+              rc.progress = sc.progress;
+              rc.rank = sc.rank;
+            }
+          }
+          for (const existingId of renderCars.keys()) {
+            if (!activeIds.has(existingId)) {
+              renderCars.delete(existingId);
+            }
+          }
+
+          // Zvuky v6: vybuch pri prechodu auta na exploded, srazka pri vzdalenosti < 26.
+          // Kazdy vybuch jen jednou na auto, srazka pro dvojici max 1x za 0,5 s.
+          if (msg.phase === 'race') {
+            const nowMs = performance.now();
+            for (const sc of msg.cars || []) {
+              if (sc.exploded && !playedExplodedIds.has(sc.id)) {
+                playedExplodedIds.add(sc.id);
+                playExplosionSound();
+              }
+            }
+            const actCars = (msg.cars || []).filter(function(cc) { return !cc.exploded && !cc.eliminated && !cc.finished; });
+            for (let i = 0; i < actCars.length; i++) {
+              for (let j = i + 1; j < actCars.length; j++) {
+                const a = actCars[i], b = actCars[j];
+                if (Math.hypot(a.x - b.x, a.y - b.y) < 26) {
+                  const key = Math.min(a.id, b.id) + '-' + Math.max(a.id, b.id);
+                  if (!lastCollisionSoundAt[key] || nowMs - lastCollisionSoundAt[key] > 500) {
+                    lastCollisionSoundAt[key] = nowMs;
+                    playCollisionSound();
+                  }
+                }
+              }
+            }
+          }
+          if (msg.phase === 'lobby') { playedExplodedIds.clear(); }
+          updateHUD();
+          return;
+        }
+
+        if (msg.type === 'qualFinish') {
+          updateEngineSound(0, false, false);
+          updateRainSound('sunny', false);
+          const ft = document.getElementById('finishTitle');
+          if (ft) ft.textContent = 'F1 Driving — Kvalifikace, startovní rošt';
+          const qn = document.getElementById('qualNote');
+          if (qn) qn.style.display = 'block';
+          renderQualScreen(msg.results || []);
+          showScreen('finish');
+          return;
+        }
+
+        if (msg.type === 'finish') {
+          const ft2 = document.getElementById('finishTitle');
+          if (ft2) ft2.textContent = 'F1 Driving — Výsledky závodu';
+          const qn2 = document.getElementById('qualNote');
+          if (qn2) qn2.style.display = 'none';
+          updateEngineSound(0, false, false);
+          updateRainSound('sunny', false);
+          playTone(523, 0.25, 'sine', 0.18, 0);
+          playTone(659, 0.25, 'sine', 0.18, 0.15);
+          playTone(784, 0.3, 'sine', 0.18, 0.3);
+          playTone(1046, 0.5, 'sine', 0.18, 0.45);
+          renderFinishScreen(msg.results || []);
+          showScreen('finish');
+          return;
+        }
+      }
+
+      // Lobby UI updates
+      function updateLobbyUI() {
+        showBannerError(lobbyError, '');
+        const list = lobbyState.players || [];
+        const humanCount = list.filter(p => !p.isBot).length;
+        const maxBotsAllowed = Math.max(0, 8 - humanCount);
+        const currentBotCount = typeof lobbyState.botCount === 'number' ? lobbyState.botCount : list.filter(p => p.isBot).length;
+        const currentBotDiff = lobbyState.botDifficulty || 'medium';
+
+        playerCountLabel.textContent = String(list.length);
+        playersList.innerHTML = '';
+
+        list.forEach(p => {
+          const item = document.createElement('div');
+          item.className = 'player-item';
+          const dot = document.createElement('span');
+          dot.className = 'color-dot';
+          dot.style.backgroundColor = p.color;
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = p.name + (p.id === myId ? ' (vy)' : '');
+          item.appendChild(dot);
+          item.appendChild(nameSpan);
+          if (p.isHost) {
+            const badge = document.createElement('span');
+            badge.className = 'host-badge';
+            badge.textContent = 'HOST';
+            item.appendChild(badge);
+          } else if (p.isBot) {
+            const badge = document.createElement('span');
+            badge.className = 'host-badge';
+            badge.style.background = 'linear-gradient(180deg, #38bdf8, #0284c7)';
+            badge.style.color = '#090d16';
+            badge.textContent = 'AI';
+            item.appendChild(badge);
+          }
+          playersList.appendChild(item);
+        });
+
+        document.querySelectorAll('.bot-count-btn').forEach(btn => {
+          const countVal = Number(btn.dataset.bots);
+          btn.classList.toggle('selected', countVal === currentBotCount);
+          btn.disabled = !isHost || countVal > maxBotsAllowed;
+        });
+
+        document.querySelectorAll('.bot-diff-btn').forEach(btn => {
+          btn.classList.toggle('selected', btn.dataset.botDiff === currentBotDiff);
+          btn.disabled = !isHost || currentBotCount === 0;
+        });
+
+        const isSingleCar = list.length === 1;
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+          btn.classList.toggle('selected', btn.dataset.mode === lobbyState.mode);
+          // Pri 1 aute (bez botu) lze jet jen Casovku; jakmile jsou alespon 2 vozy (clovek + bot), jsou odemceny vsechny rezimy.
+          btn.disabled = !isHost || (isSingleCar && btn.dataset.mode !== 'time');
+        });
+
+        document.querySelectorAll('.speed-btn').forEach(btn => {
+          btn.classList.toggle('selected', btn.dataset.speed === lobbyState.speed);
+          btn.disabled = !isHost;
+        });
+
+        const currentWeather = lobbyState.weather || 'sunny';
+        document.querySelectorAll('.weather-btn').forEach(btn => {
+          btn.classList.toggle('selected', btn.dataset.weather === currentWeather);
+          btn.disabled = !isHost;
+        });
+
+        document.querySelectorAll('.sound-preset-btn').forEach(btn => {
+          btn.classList.toggle('selected', btn.dataset.soundPreset === soundPreset);
+          btn.disabled = false;
+        });
+
+        const currentMapSize = lobbyState.mapSize || 'standard';
+        document.querySelectorAll('.map-size-btn').forEach(btn => {
+          btn.classList.toggle('selected', btn.dataset.mapSize === currentMapSize);
+          btn.disabled = !isHost;
+        });
+        const currentQual = Boolean(lobbyState.qualifying);
+        document.querySelectorAll('.qual-btn').forEach(btn => {
+          btn.classList.toggle('selected', (btn.dataset.qualifying === 'true') === currentQual);
+          btn.disabled = !isHost || isSingleCar;
+        });
+        renderFavList();
+
+        trackStatusLabel.textContent = lobbyState.hasTrack && trackData
+          ? `připravena (${Math.round(trackData.length)} j.)`
+          : 'nenakreslena';
+
+        hostLobbyControls.style.display = isHost ? 'flex' : 'none';
+        guestLobbyNotice.style.display = isHost ? 'none' : 'block';
+        const soloNoteEl = document.getElementById('soloNote');
+        if (soloNoteEl) soloNoteEl.style.display = (isHost && isSingleCar) ? 'block' : 'none';
+        // Start: pri 1 voze jen Casovka, pri 2+ vozech (vcetne botu) jakykoli rezim.
+        startRaceBtn.disabled = !(isHost && list.length >= 1 && lobbyState.hasTrack && (list.length >= 2 || lobbyState.mode === 'time'));
+
+        backToLobbyBtn.style.display = isHost ? 'inline-flex' : 'none';
+        finishGuestWait.style.display = isHost ? 'none' : 'block';
+      }
+
+      document.querySelectorAll('.bot-count-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (isHost) sendMsg({ type: 'bots', count: Number(btn.dataset.bots) });
+        });
+      });
+
+      document.querySelectorAll('.bot-diff-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (isHost) sendMsg({ type: 'botDifficulty', difficulty: btn.dataset.botDiff });
+        });
+      });
+
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (isHost) sendMsg({ type: 'mode', mode: btn.dataset.mode });
+        });
+      });
+
+      document.querySelectorAll('.speed-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (isHost) sendMsg({ type: 'speed', speed: btn.dataset.speed });
+        });
+      });
+
+      document.querySelectorAll('.weather-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (isHost) sendMsg({ type: 'weather', weather: btn.dataset.weather });
+        });
+      });
+      document.querySelectorAll('.map-size-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (isHost) sendMsg({ type: 'mapSize', mapSize: btn.dataset.mapSize });
+        });
+      });
+      document.querySelectorAll('.qual-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (isHost) sendMsg({ type: 'qualifying', qualifying: btn.dataset.qualifying === 'true' });
+        });
+      });
+      // Oblibene trate: localStorage jen na tomto telefonu, hostitel uklada center body trati.
+      const favTrackNameEl = document.getElementById('favTrackName');
+      const favTracksListEl = document.getElementById('favTracksList');
+      const saveFavBtn = document.getElementById('saveFavBtn');
+      function loadFavTracks() {
+        try {
+          const raw = localStorage.getItem('f1DrivingFavTracksV7');
+          const arr = raw ? JSON.parse(raw) : [];
+          return Array.isArray(arr) ? arr : [];
+        } catch (e) { return []; }
+      }
+      function storeFavTracks(arr) {
+        try { localStorage.setItem('f1DrivingFavTracksV7', JSON.stringify(arr)); } catch (e) { showBannerError(lobbyError, 'Oblíbenou trať se nepodařilo uložit do prohlížeče.'); }
+      }
+      function renderFavList() {
+        if (!favTracksListEl) return;
+        const favs = loadFavTracks();
+        favTracksListEl.innerHTML = '';
+        if (favs.length === 0) {
+          const empty = document.createElement('div');
+          empty.style.cssText = 'text-align:center; font-size:12px; color:#94a3b8;';
+          empty.textContent = 'Zatím žádné oblíbené tratě.';
+          favTracksListEl.appendChild(empty);
+          return;
+        }
+        favs.forEach(function(fav, idx) {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex; gap:6px; margin-bottom:4px;';
+          const loadBtn = document.createElement('button');
+          loadBtn.className = 'btn btn-secondary';
+          loadBtn.style.flex = '1';
+          loadBtn.textContent = 'Načíst: ' + fav.name + ' (' + (fav.mapSize === 'large' ? 'velká' : 'standardní') + ')';
+          loadBtn.addEventListener('click', function() {
+            if (!isHost) return;
+            const doDraw = function() { sendMsg({ type: 'draw', raw: fav.points }); };
+            if (fav.mapSize && fav.mapSize !== (lobbyState.mapSize || 'standard')) {
+              sendMsg({ type: 'mapSize', mapSize: fav.mapSize });
+              setTimeout(doDraw, 700);
+            } else {
+              doDraw();
+            }
+          });
+          const delBtn = document.createElement('button');
+          delBtn.className = 'btn btn-secondary';
+          delBtn.textContent = 'Smazat';
+          delBtn.addEventListener('click', function() {
+            const arr = loadFavTracks(); arr.splice(idx, 1); storeFavTracks(arr); renderFavList();
+          });
+          row.appendChild(loadBtn); row.appendChild(delBtn); favTracksListEl.appendChild(row);
+        });
+      }
+      if (saveFavBtn) {
+        saveFavBtn.addEventListener('click', function() {
+          if (!isHost) { showBannerError(lobbyError, 'Oblíbenou trať může uložit jen hostitel.'); return; }
+          if (!trackData || !trackData.center) { showBannerError(lobbyError, 'Nejprve nakreslete trať.'); return; }
+          const favs = loadFavTracks();
+          const name = (favTrackNameEl && favTrackNameEl.value.trim()) ? favTrackNameEl.value.trim() : ('Trať ' + (favs.length + 1));
+          const existing = favs.findIndex(f => f.name === name);
+          const entry = { name: name, mapSize: lobbyState.mapSize || 'standard', worldW: WORLD_W, worldH: WORLD_H, points: trackData.center, length: trackData.length };
+          if (existing >= 0) favs[existing] = entry; else favs.push(entry);
+          if (favs.length > 20) favs.splice(0, favs.length - 20);
+          storeFavTracks(favs);
+          showBannerError(lobbyError, '');
+          renderFavList();
+        });
+      }
+      renderFavList();
+
+      openDrawBtn.addEventListener('click', () => {
+        if (!isHost) return;
+        showBannerError(drawError, '');
+        showScreen('draw');
+        renderDrawCanvas();
+      });
+
+      startRaceBtn.addEventListener('click', () => {
+        if (!isHost) return;
+        ensureAudio();
+        sendMsg({ type: 'start' });
+      });
+
+      // Zvukove predvolby jsou jen pro tohoto hrace, ne pro celou lobby, proto je muze menit i host i host.
+      document.querySelectorAll('.sound-preset-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          soundPreset = btn.dataset.soundPreset;
+          ensureAudio();
+          applySoundPreset();
+        });
+      });
+
+      backToLobbyBtn.addEventListener('click', () => {
+        if (!isHost) return;
+        sendMsg({ type: 'toLobby' });
+      });
+
+      // Track drawing screen logic
+      function getCanvasWorldCoords(canvas, clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = WORLD_W / rect.width;
+        const scaleY = WORLD_H / rect.height;
+        return {
+          x: Math.max(ROAD_HALF + 10, Math.min(WORLD_W - ROAD_HALF - 10, (clientX - rect.left) * scaleX)),
+          y: Math.max(ROAD_HALF + 10, Math.min(WORLD_H - ROAD_HALF - 10, (clientY - rect.top) * scaleY))
+        };
+      }
+
+      drawCanvas.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        drawCanvas.setPointerCapture(e.pointerId);
+        isDrawingTrack = true;
+        rawDrawPoints = [getCanvasWorldCoords(drawCanvas, e.clientX, e.clientY)];
+        showBannerError(drawError, '');
+        renderDrawCanvas();
+      });
+
+      drawCanvas.addEventListener('pointermove', (e) => {
+        if (!isDrawingTrack) return;
+        e.preventDefault();
+        const pt = getCanvasWorldCoords(drawCanvas, e.clientX, e.clientY);
+        const last = rawDrawPoints[rawDrawPoints.length - 1];
+        if (!last || Math.hypot(pt.x - last.x, pt.y - last.y) >= 8) {
+          rawDrawPoints.push(pt);
+          renderDrawCanvas();
+        }
+      });
+
+      function stopDrawingTrack() {
+        if (!isDrawingTrack) return;
+        isDrawingTrack = false;
+        renderDrawCanvas();
+      }
+
+      drawCanvas.addEventListener('pointerup', stopDrawingTrack);
+      drawCanvas.addEventListener('pointercancel', stopDrawingTrack);
+
+      function generateSampleTrackPoints() {
+        const pts = [];
+        const count = 90;
+        const sx = WORLD_W / 1600, sy = WORLD_H / 900;
+        for (let i = 0; i < count; i++) {
+          const a = (i / count) * Math.PI * 2;
+          const rx = (560 + 95 * Math.cos(2 * a) - 45 * Math.sin(3 * a)) * sx;
+          const ry = (290 + 55 * Math.sin(2 * a)) * sy;
+          const x = WORLD_W / 2 + Math.cos(a) * rx;
+          const y = WORLD_H / 2 + Math.sin(a) * ry;
+          pts.push({ x, y });
+        }
+        return pts;
+      }
+
+      sampleTrackBtn.addEventListener('click', () => {
+        rawDrawPoints = generateSampleTrackPoints();
+        showBannerError(drawError, '');
+        renderDrawCanvas();
+      });
+
+      clearTrackBtn.addEventListener('click', () => {
+        rawDrawPoints = [];
+        showBannerError(drawError, '');
+        renderDrawCanvas();
+      });
+
+      cancelDrawBtn.addEventListener('click', () => {
+        showScreen('lobby');
+      });
+
+      saveTrackBtn.addEventListener('click', () => {
+        if (rawDrawPoints.length < 6) {
+          showBannerError(drawError, 'Nejprve nakreslete prstem trať nebo klikněte na „Ukázková trať“.');
+          return;
+        }
+        sendMsg({ type: 'draw', raw: rawDrawPoints });
+      });
+
+      function renderDrawCanvas() {
+        const ctx = drawCanvas.getContext('2d');
+        ctx.clearRect(0, 0, WORLD_W, WORLD_H);
+
+        ctx.fillStyle = '#183a21';
+        ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(ROAD_HALF, ROAD_HALF, WORLD_W - ROAD_HALF * 2, WORLD_H - ROAD_HALF * 2);
+
+        if (rawDrawPoints.length === 0 && bakedWorldCanvas) {
+          ctx.drawImage(bakedWorldCanvas, 0, 0);
+          return;
+        }
+
+        if (rawDrawPoints.length > 1) {
+          ctx.save();
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = '#262b33';
+          ctx.lineWidth = ROAD_HALF * 2;
+          ctx.beginPath();
+          ctx.moveTo(rawDrawPoints[0].x, rawDrawPoints[0].y);
+          for (let i = 1; i < rawDrawPoints.length; i++) {
+            ctx.lineTo(rawDrawPoints[i].x, rawDrawPoints[i].y);
+          }
+          if (!isDrawingTrack && rawDrawPoints.length > 3) {
+            ctx.closePath();
+          }
+          ctx.stroke();
+
+          ctx.strokeStyle = '#f5c518';
+          ctx.lineWidth = 4;
+          ctx.setLineDash([14, 10]);
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.fillStyle = '#e11d2e';
+          ctx.beginPath();
+          ctx.arc(rawDrawPoints[0].x, rawDrawPoints[0].y, 12, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Bake realistic 3D terrain, 3D beveled curbs, textured asphalt, rubber racing line, and 3D start gantry
+      function bakeRealistic3DTrack(td, weather) {
+        if (!td || !td.center || td.center.length < 3) return;
+        if (!bakedWorldCanvas) {
+          bakedWorldCanvas = document.createElement('canvas');
+          bakedWorldCanvas.width = WORLD_W;
+          bakedWorldCanvas.height = WORLD_H;
+        }
+        bakedWorldWeather = weather || 'sunny';
+        const ctx = bakedWorldCanvas.getContext('2d');
+        const center = td.center;
+
+        // 1. Realistic 3D turf / grass terrain with mowing bands and directional lighting
+        const grassGrad = ctx.createLinearGradient(0, 0, WORLD_W, WORLD_H);
+        if (bakedWorldWeather === 'rain') {
+          grassGrad.addColorStop(0, '#132a1c');
+          grassGrad.addColorStop(0.5, '#0f2317');
+          grassGrad.addColorStop(1, '#09180f');
+        } else if (bakedWorldWeather === 'foggy') {
+          grassGrad.addColorStop(0, '#223829');
+          grassGrad.addColorStop(0.5, '#1d3124');
+          grassGrad.addColorStop(1, '#16271c');
+        } else {
+          grassGrad.addColorStop(0, '#214d26');
+          grassGrad.addColorStop(0.5, '#1b4020');
+          grassGrad.addColorStop(1, '#122e16');
+        }
+        ctx.fillStyle = grassGrad;
+        ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+
+        // Diagonal stadium turf mowing stripes
+        ctx.save();
+        ctx.fillStyle = bakedWorldWeather === 'sunny' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.018)';
+        for (let x = -WORLD_H; x < WORLD_W + WORLD_H; x += 90) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x + 45, 0);
+          ctx.lineTo(x + 45 - WORLD_H * 0.4, WORLD_H);
+          ctx.lineTo(x - WORLD_H * 0.4, WORLD_H);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+
+        // Fine organic grass shading variation
+        ctx.save();
+        for (let i = 0; i < 450; i++) {
+          const gx = (i * 197) % WORLD_W;
+          const gy = (i * 353) % WORLD_H;
+          const rad = 25 + (i % 55);
+          const g = ctx.createRadialGradient(gx, gy, 2, gx, gy, rad);
+          g.addColorStop(0, i % 2 === 0 ? 'rgba(0,0,0,0.08)' : 'rgba(180,230,140,0.04)');
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(gx, gy, rad, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+
+        function traceCenterPath(offsetX, offsetY) {
+          ctx.beginPath();
+          ctx.moveTo(center[0].x + offsetX, center[0].y + offsetY);
+          for (let i = 1; i < center.length; i++) {
+            ctx.lineTo(center[i].x + offsetX, center[i].y + offsetY);
+          }
+          ctx.closePath();
+        }
+
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // 2. Track embankment / gravel verge & 3D ground shadow
+        traceCenterPath(7, 9);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+        ctx.lineWidth = (ROAD_HALF + 13) * 2;
+        ctx.stroke();
+
+        // Gravel / runoff shoulder edge
+        traceCenterPath(0, 0);
+        ctx.strokeStyle = bakedWorldWeather === 'rain' ? '#2c3531' : '#3d463e';
+        ctx.lineWidth = (ROAD_HALF + 12) * 2;
+        ctx.stroke();
+
+        // 3. 3D Extruded Kerb (sidewall thickness + top red/white serrated F1 curbs)
+        traceCenterPath(3.5, 4.5);
+        ctx.strokeStyle = '#090d14';
+        ctx.lineWidth = (ROAD_HALF + 7.5) * 2;
+        ctx.stroke();
+
+        // Base white kerb
+        traceCenterPath(0, 0);
+        ctx.strokeStyle = bakedWorldWeather === 'rain' ? '#cbd5e1' : '#f1f5f9';
+        ctx.lineWidth = (ROAD_HALF + 7) * 2;
+        ctx.stroke();
+
+        // Alternating crimson F1 kerb blocks
+        traceCenterPath(0, 0);
+        ctx.strokeStyle = bakedWorldWeather === 'rain' ? '#b91c1c' : '#dc2626';
+        ctx.lineWidth = (ROAD_HALF + 7) * 2;
+        ctx.setLineDash([18, 18]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 3D inner bevel shadow between raised kerb and asphalt surface
+        traceCenterPath(0, 0);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+        ctx.lineWidth = (ROAD_HALF + 1.5) * 2;
+        ctx.stroke();
+
+        // 4. Multi-layered realistic 3D Asphalt surface
+        traceCenterPath(0, 0);
+        if (bakedWorldWeather === 'rain') {
+          ctx.strokeStyle = '#181e29';
+        } else if (bakedWorldWeather === 'foggy') {
+          ctx.strokeStyle = '#293140';
+        } else {
+          ctx.strokeStyle = '#232936';
+        }
+        ctx.lineWidth = ROAD_HALF * 2;
+        ctx.stroke();
+
+        // Crown highlight along road surface for 3D camber curvature
+        traceCenterPath(-2, -2);
+        ctx.strokeStyle = bakedWorldWeather === 'rain'
+          ? 'rgba(148, 163, 184, 0.14)'
+          : 'rgba(255, 255, 255, 0.06)';
+        ctx.lineWidth = ROAD_HALF * 1.35;
+        ctx.stroke();
+
+        // Darker worn rubber racing groove along the center
+        traceCenterPath(0, 0);
+        ctx.strokeStyle = 'rgba(10, 14, 22, 0.45)';
+        ctx.lineWidth = ROAD_HALF * 0.72;
+        ctx.stroke();
+
+        // Wet puddle specular reflections in Rain mode
+        if (bakedWorldWeather === 'rain') {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(186, 230, 253, 0.16)';
+          ctx.lineWidth = ROAD_HALF * 0.4;
+          ctx.setLineDash([45, 70]);
+          traceCenterPath(6, -4);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+
+        // Crisp painted edge white track-limit lines
+        if (td.left && td.right && td.left.length > 2) {
+          ctx.strokeStyle = bakedWorldWeather === 'rain' ? 'rgba(226,232,240,0.55)' : 'rgba(248,250,252,0.75)';
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.moveTo(td.left[0].x, td.left[0].y);
+          for (let i = 1; i < td.left.length; i++) ctx.lineTo(td.left[i].x, td.left[i].y);
+          ctx.closePath();
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(td.right[0].x, td.right[0].y);
+          for (let i = 1; i < td.right.length; i++) ctx.lineTo(td.right[i].x, td.right[i].y);
+          ctx.closePath();
+          ctx.stroke();
+        }
+
+        // 5. Realistic 3D Checkered Start/Finish Line & Overhead 3D Gantry Bridge at Index 0
+        if (td.left && td.right && td.left[0] && td.right[0]) {
+          const l0 = td.left[0];
+          const r0 = td.right[0];
+          const c0 = center[0];
+          const c1 = center[1];
+          const tangAngle = Math.atan2(c1.y - c0.y, c1.x - c0.x);
+          const roadWidth = Math.hypot(r0.x - l0.x, r0.y - l0.y);
+
+          ctx.save();
+          ctx.translate(c0.x, c0.y);
+          ctx.rotate(tangAngle);
+
+          // Checkered pattern across the start/finish line (-roadWidth/2 to +roadWidth/2)
+          const cols = 2;
+          const rows = 16;
+          const cellW = 7;
+          const cellH = roadWidth / rows;
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              ctx.fillStyle = (r + c) % 2 === 0 ? '#f8fafc' : '#0f172a';
+              ctx.fillRect(-cellW + c * cellW, -roadWidth / 2 + r * cellH, cellW, cellH + 0.5);
+            }
+          }
+
+          // 3D Start/Finish Overhead Truss Gantry Shadow on the asphalt
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          ctx.fillRect(-14, -roadWidth / 2 - 8, 12, roadWidth + 16);
+
+          // 3D Gantry Pillars on left and right sides of the road
+          ctx.fillStyle = '#334155';
+          ctx.strokeStyle = '#94a3b8';
+          ctx.lineWidth = 1.5;
+          ctx.fillRect(-8, -roadWidth / 2 - 14, 16, 12);
+          ctx.strokeRect(-8, -roadWidth / 2 - 14, 16, 12);
+          ctx.fillRect(-8, roadWidth / 2 + 2, 16, 12);
+          ctx.strokeRect(-8, roadWidth / 2 + 2, 16, 12);
+
+          // Overhead 3D Metallic Bridge Beam spanning across the track
+          const bridgeGrad = ctx.createLinearGradient(-7, 0, 7, 0);
+          bridgeGrad.addColorStop(0, '#1e293b');
+          bridgeGrad.addColorStop(0.5, '#64748b');
+          bridgeGrad.addColorStop(1, '#0f172a');
+          ctx.fillStyle = bridgeGrad;
+          ctx.fillRect(-6, -roadWidth / 2 - 10, 12, roadWidth + 20);
+          ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+          ctx.strokeRect(-6, -roadWidth / 2 - 10, 12, roadWidth + 20);
+
+          // 5 F1 Start Gantry Light Pods
+          for (let k = -2; k <= 2; k++) {
+            const ly = k * 14;
+            ctx.fillStyle = '#090d16';
+            ctx.fillRect(-4, ly - 4, 8, 8);
+            ctx.fillStyle = '#e11d2e';
+            ctx.beginPath();
+            ctx.arc(1, ly, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          ctx.restore();
+        }
+
+        // 6. Pseudo-3D okoli trati: stromy, pneumatikove steny a boxova ulicka (tribuna odstranena ve v6).
+        // Vse je jen vizualni, na baked canvas, neovlivnuje fyziku ani nejblizsi bod trati.
+        // Stromy: deterministicka mrizka, jen tam, kde je od stredu trati dost daleko.
+        for (let gx = 70; gx < WORLD_W - 70; gx += 110) {
+          for (let gy = 70; gy < WORLD_H - 70; gy += 110) {
+            let minD = 1e9;
+            for (let ci = 0; ci < center.length; ci += 4) {
+              const d = Math.hypot(center[ci].x - gx, center[ci].y - gy);
+              if (d < minD) minD = d;
+            }
+            if (minD < 135) continue;
+            const h = Math.abs((gx * 73856093) ^ (gy * 19349663)) % 100;
+            if (h >= 28) continue;
+            ctx.fillStyle = 'rgba(0,0,0,0.35)';
+            ctx.beginPath(); ctx.ellipse(gx + 6, gy + 8, 22, 14, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#5b3a1e'; ctx.fillRect(gx - 3, gy - 2, 6, 12);
+            ctx.fillStyle = '#14532d'; ctx.beginPath(); ctx.arc(gx, gy - 8, 20, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#166534'; ctx.beginPath(); ctx.arc(gx - 6, gy - 14, 12, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.arc(gx - 8, gy - 16, 6, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+        // Pneumatikove steny podél trati, kazdy 18. bod, obe strany.
+        if (td.left && td.right) {
+          for (let i = 0; i < center.length; i += 18) {
+            const lx = td.left[i].x, ly = td.left[i].y, rx = td.right[i].x, ry = td.right[i].y;
+            const mx = (lx + rx) / 2, my = (ly + ry) / 2;
+            const dx = lx - mx, dy = ly - my, dl = Math.hypot(dx, dy) || 1;
+            const ux = dx / dl, uy = dy / dl;
+            [[1, 0], [-1, 0]].forEach(function(side) {
+              const tx = mx + ux * side[0] * (ROAD_HALF + 26), ty = my + uy * side[0] * (ROAD_HALF + 26);
+              ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(tx, ty, 9, 0, Math.PI * 2); ctx.fill();
+              ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(tx, ty, 9, 0, Math.PI * 2); ctx.stroke();
+              ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.arc(tx, ty, 3, 0, Math.PI * 2); ctx.fill();
+            });
+          }
+        }
+        // v6: tribuna ODSTRANENA na zadost uzivatele. Zbyva jen boxova ulicka.
+        // Promenne lx/ly/ll zustavaji pro boxovou ulicku.
+        if (td.left && td.right && td.left[0]) {
+          const c0 = center[0], c1 = center[1];
+          const tang = Math.atan2(c1.y - c0.y, c1.x - c0.x);
+          const lx = td.left[0].x - c0.x, ly = td.left[0].y - c0.y, ll = Math.hypot(lx, ly) || 1;
+          // Boxova ulicka: vizualni paralelni pruh u startovni rovinky, ne druha trat.
+          ctx.save(); ctx.strokeStyle = '#3f3f46'; ctx.lineWidth = 18; ctx.setLineDash([24, 12]);
+          ctx.beginPath();
+          for (let i = 0; i <= 28; i++) {
+            const ci = i % center.length;
+            const px = center[ci].x + (lx / ll) * 95, py = center[ci].y + (ly / ll) * 95;
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          }
+          ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+        }
+
+        ctx.restore();
+      }
+
+      function drawTrackPreview(canvas, td) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#14361d';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (!td || !td.center) return;
+        if (!bakedWorldCanvas) {
+          bakeRealistic3DTrack(td, lobbyState.weather || 'sunny');
+        }
+        ctx.drawImage(bakedWorldCanvas, 0, 0, canvas.width, canvas.height);
+      }
+
+      drawTrackPreview(lobbyTrackCanvas, null);
+
+      // Steering wheel & Gas pedal controls
+      function updateWheelVisual() {
+        const deg = (steeringHeading * 180) / Math.PI;
+        wheelRotor.setAttribute('transform', `rotate(${deg} 80 80)`);
+      }
+
+      function updateSteeringFromClientPoint(clientX, clientY) {
+        const rect = steeringWheel.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const dx = clientX - centerX;
+        const dy = clientY - centerY;
+        if (Math.hypot(dx, dy) > 1) {
+          steeringHeading = Math.atan2(dy, dx);
+          updateWheelVisual();
+        }
+      }
+
+      steeringZone.addEventListener('pointerdown', (e) => {
+        if (steeringPointerId !== null) return;
+        e.preventDefault();
+        steeringPointerId = e.pointerId;
+        steeringWheel.classList.add('held');
+        try {
+          steeringZone.setPointerCapture(e.pointerId);
+        } catch (err) {}
+        updateSteeringFromClientPoint(e.clientX, e.clientY);
+      });
+
+      steeringZone.addEventListener('pointermove', (e) => {
+        if (e.pointerId !== steeringPointerId) return;
+        e.preventDefault();
+        updateSteeringFromClientPoint(e.clientX, e.clientY);
+      });
+
+      function endSteeringPointer(e) {
+        if (e.pointerId !== steeringPointerId) return;
+        steeringPointerId = null;
+        steeringWheel.classList.remove('held');
+      }
+
+      steeringZone.addEventListener('pointerup', endSteeringPointer);
+      steeringZone.addEventListener('pointercancel', endSteeringPointer);
+
+      window.addEventListener('pointermove', (e) => {
+        if (e.pointerId === steeringPointerId) {
+          updateSteeringFromClientPoint(e.clientX, e.clientY);
+        }
+      });
+      window.addEventListener('pointerup', endSteeringPointer);
+      window.addEventListener('pointercancel', endSteeringPointer);
+
+      function updateGasVisual() {
+        const active = gasPointerIds.size > 0 || keysDown.up;
+        gasPressed = active;
+        gasPedal.classList.toggle('pressed', active);
+      }
+
+      gasPedal.addEventListener('pointerdown', (e) => {
+        ensureAudio();
+        e.preventDefault();
+        e.stopPropagation();
+        gasPointerIds.add(e.pointerId);
+        try {
+          gasPedal.setPointerCapture(e.pointerId);
+        } catch (err) {}
+        updateGasVisual();
+      });
+
+      function endGasPointer(e) {
+        if (gasPointerIds.has(e.pointerId)) {
+          gasPointerIds.delete(e.pointerId);
+          updateGasVisual();
+        }
+      }
+
+      gasPedal.addEventListener('pointerup', endGasPointer);
+      gasPedal.addEventListener('pointercancel', endGasPointer);
+      window.addEventListener('pointerup', endGasPointer);
+      window.addEventListener('pointercancel', endGasPointer);
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') { keysDown.left = true; }
+        else if (e.key === 'ArrowRight') { keysDown.right = true; }
+        else if (e.key === 'ArrowUp') { keysDown.up = true; updateGasVisual(); }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowLeft') { keysDown.left = false; }
+        else if (e.key === 'ArrowRight') { keysDown.right = false; }
+        else if (e.key === 'ArrowUp') { keysDown.up = false; updateGasVisual(); }
+      });
+
+      // Send input to server at 30 Hz
+      setInterval(() => {
+        if (!serverState || (serverState.phase !== 'countdown' && serverState.phase !== 'race')) return;
+        sendMsg({
+          type: 'input',
+          heading: steeringHeading,
+          gas: gasPressed
+        });
+      }, 1000 / 30);
+
+      // Update HUD elements
+      function updateHUD() {
+        if (!serverState || !serverState.cars) return;
+        const cars = serverState.cars;
+        const totalPlayers = Math.max(2, cars.length);
+        const myCar = cars.find(c => c.id === myId) || cars[0];
+        if (!myCar) return;
+
+        hudPos.textContent = `Pozice ${myCar.rank} / ${totalPlayers}`;
+        const lapsTarget = (serverState && serverState.lapsTarget) || 3;
+        hudLap.textContent = `Kolo ${Math.min(lapsTarget, myCar.lap)} / ${lapsTarget}`;
+        const hudQualEl = document.getElementById('hudQual');
+        if (hudQualEl) hudQualEl.style.display = (serverState && serverState.isQualifying) ? 'block' : 'none';
+        hudLapTime.textContent = `Kolo: ${formatRaceTime(myCar.lapTime)}`;
+        hudTotalTime.textContent = `Celkem: ${formatRaceTime(myCar.elapsed)}`;
+        hudSpeed.textContent = `${myCar.speedKmh} km/h`;
+        hudOffLap.textContent = `Mimo trať toto kolo: ${(myCar.offSecondsLap || 0).toFixed(1)} s`;
+
+        hudOffWarn.style.display = myCar.off && !myCar.exploded && !myCar.eliminated ? 'block' : 'none';
+        if (myCar.off && offTrackNearest && offTrackNearest.dist > 80) {
+          hudOffWarn.textContent = 'MIMO TRAŤ – trať ' + Math.round(offTrackNearest.dist) + ' j.';
+        } else {
+          hudOffWarn.textContent = 'MIMO TRAŤ';
+        }
+        if (myCar.exploded) { hudExplodedWarn.textContent = 'VYBOUCHL JSI — sleduješ celou mapu'; hudExplodedWarn.style.display = 'block'; }
+        else if (myCar.eliminated) { hudExplodedWarn.textContent = 'VYŘAZEN — sleduješ celou mapu'; hudExplodedWarn.style.display = 'block'; }
+        else { hudExplodedWarn.style.display = 'none'; }
+        updateLeaderboard();
+
+        updateEngineSound(myCar.speedKmh, gasPressed, serverState.phase === 'race' && !myCar.finished && !myCar.exploded && !myCar.eliminated);
+        updateRainSound(serverState.weather || lobbyState.weather || 'sunny', serverState.phase === 'countdown' || serverState.phase === 'race');
+        if (serverState.phase === 'countdown') {
+          // Semafor v6: 5 cervenych svetel se postupne rozsveci behem 3,2 s odpoctu, pak GO!
+          if (startLightsEl) {
+            startLightsEl.style.display = 'flex';
+            const elapsed = Math.max(0, 3.2 - (serverState.countdownT || 0));
+            const lightsOn = Math.min(5, Math.floor(elapsed / 0.64) + 1);
+            const lights = startLightsEl.querySelectorAll('.light');
+            lights.forEach(function(l, i) { l.classList.toggle('on', i < lightsOn); });
+          }
+          countdownBanner.style.display = 'none';
+          const cdNum = Math.ceil(serverState.countdownT);
+          if (cdNum !== lastCountdownNum) {
+            lastCountdownNum = cdNum;
+            playTone(cdNum <= 1 ? 880 : 440, 0.18, 'sine', 0.15, 0);
+          }
+        } else if (performance.now() < goBannerUntil) {
+          if (startLightsEl) startLightsEl.style.display = 'none';
+          countdownBanner.style.display = 'block';
+          countdownBanner.textContent = 'GO!';
+        } else {
+          if (startLightsEl) startLightsEl.style.display = 'none';
+          countdownBanner.style.display = 'none';
+        }
+      }
+
+      // Draw realistic 3D sculpted Formula 1 car top-down at (x, y) facing `heading`
+      function drawRealistic3DFormula1Car(ctx, car, weather) {
+        ctx.save();
+        ctx.translate(car.x, car.y);
+
+        if (car.eliminated || car.exploded) {
+          ctx.globalAlpha = 0.45;
+        }
+
+        const lightCol = shadeHexColor(car.color, 55);
+        const midCol = car.color;
+        const darkCol = shadeHexColor(car.color, -65);
+
+        // 1. Soft 3D directional drop shadow underneath the F1 car
+        ctx.save();
+        const shadowOffsetX = weather === 'sunny' ? 4.5 : 2.5;
+        const shadowOffsetY = weather === 'sunny' ? 5.5 : 3.0;
+        ctx.translate(shadowOffsetX, shadowOffsetY);
+        ctx.rotate(car.heading);
+        ctx.fillStyle = weather === 'sunny' ? 'rgba(0, 0, 0, 0.58)' : 'rgba(0, 0, 0, 0.42)';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 20, 12.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.rotate(car.heading);
+
+        // 2. Carbon-fiber floor plank & rear diffuser undertray (3D base layer)
+        ctx.fillStyle = '#0f172a';
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(-15, -8.5);
+        ctx.lineTo(6, -8);
+        ctx.lineTo(11, -3.5);
+        ctx.lineTo(11, 3.5);
+        ctx.lineTo(6, 8);
+        ctx.lineTo(-15, 8.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 3. Carbon wishbone suspension arms (front and rear double wishbones)
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        // Rear wishbones
+        ctx.moveTo(-11, -4); ctx.lineTo(-10, -10);
+        ctx.moveTo(-7, -4);  ctx.lineTo(-10, -10);
+        ctx.moveTo(-11, 4);  ctx.lineTo(-10, 10);
+        ctx.moveTo(-7, 4);   ctx.lineTo(-10, 10);
+        // Front wishbones
+        ctx.moveTo(6, -2.5); ctx.lineTo(9.5, -9.5);
+        ctx.moveTo(11, -2);  ctx.lineTo(9.5, -9.5);
+        ctx.moveTo(6, 2.5);  ctx.lineTo(9.5, 9.5);
+        ctx.moveTo(11, 2);   ctx.lineTo(9.5, 9.5);
+        ctx.stroke();
+
+        // 4. 3D Sculpted Pirelli F1 Tires with cylindrical shading and colored sidewall rings
+        function draw3DTire(tx, ty, tw, th) {
+          ctx.save();
+          ctx.translate(tx, ty);
+          const tGrad = ctx.createLinearGradient(0, -th / 2, 0, th / 2);
+          tGrad.addColorStop(0, '#090d16');
+          tGrad.addColorStop(0.35, '#334155');
+          tGrad.addColorStop(0.7, '#1e293b');
+          tGrad.addColorStop(1, '#090d16');
+          ctx.fillStyle = tGrad;
+          ctx.beginPath();
+          ctx.roundRect(-tw / 2, -th / 2, tw, th, 2);
+          ctx.fill();
+          ctx.strokeStyle = '#020617';
+          ctx.lineWidth = 0.9;
+          ctx.stroke();
+
+          // Tire tread specular band
+          ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(-tw / 2 + 1, -0.5);
+          ctx.lineTo(tw / 2 - 1, -0.5);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Rear wide F1 tires & Front F1 tires
+        draw3DTire(-10.5, -10.8, 9.2, 5.6);
+        draw3DTire(-10.5, 10.8, 9.2, 5.6);
+        draw3DTire(9.5, -9.8, 7.8, 4.6);
+        draw3DTire(9.5, 9.8, 7.8, 4.6);
+
+        // 5. Sculpted 3D Sidepods & Engine Cover with metallic gradient
+        const bodyGrad = ctx.createLinearGradient(0, -8, 0, 8);
+        bodyGrad.addColorStop(0, darkCol);
+        bodyGrad.addColorStop(0.28, midCol);
+        bodyGrad.addColorStop(0.48, lightCol);
+        bodyGrad.addColorStop(0.72, midCol);
+        bodyGrad.addColorStop(1, darkCol);
+
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.moveTo(-14, -3.2);
+        ctx.lineTo(-6, -7.8);
+        ctx.lineTo(2.5, -7.2);
+        ctx.lineTo(5.5, -4.0);
+        ctx.lineTo(18.5, -1.6);
+        ctx.lineTo(19.5, 0);
+        ctx.lineTo(18.5, 1.6);
+        ctx.lineTo(5.5, 4.0);
+        ctx.lineTo(2.5, 7.2);
+        ctx.lineTo(-6, 7.8);
+        ctx.lineTo(-14, 3.2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Sidepod radiator intakes (3D recessed dark ducts)
+        ctx.fillStyle = '#090d16';
+        ctx.beginPath();
+        ctx.moveTo(3.5, -6.6); ctx.lineTo(1.5, -4.0); ctx.lineTo(-1, -4.5); ctx.lineTo(1.5, -6.8); ctx.closePath();
+        ctx.moveTo(3.5, 6.6);  ctx.lineTo(1.5, 4.0);  ctx.lineTo(-1, 4.5);  ctx.lineTo(1.5, 6.8);  ctx.closePath();
+        ctx.fill();
+
+        // Central 3D Spine / Shark-fin Engine Cover & Specular Nose Ridge
+        const spineGrad = ctx.createLinearGradient(-14, -2, 18, 2);
+        spineGrad.addColorStop(0, darkCol);
+        spineGrad.addColorStop(0.5, lightCol);
+        spineGrad.addColorStop(1, '#ffffff');
+        ctx.strokeStyle = spineGrad;
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(-13.5, 0);
+        ctx.lineTo(18, 0);
+        ctx.stroke();
+
+        // 6. Multi-element 3D Front Wing with endplates
+        const fwGrad = ctx.createLinearGradient(14, 0, 19, 0);
+        fwGrad.addColorStop(0, '#0f172a');
+        fwGrad.addColorStop(0.5, midCol);
+        fwGrad.addColorStop(1, lightCol);
+        ctx.fillStyle = fwGrad;
+        ctx.beginPath();
+        ctx.moveTo(14.5, -11.2);
+        ctx.lineTo(18.2, -10.2);
+        ctx.lineTo(19.2, 0);
+        ctx.lineTo(18.2, 10.2);
+        ctx.lineTo(14.5, 11.2);
+        ctx.lineTo(15.5, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+
+        // Front wing endplates
+        ctx.fillStyle = midCol;
+        ctx.fillRect(14.2, -11.6, 4.5, 1.4);
+        ctx.fillRect(14.2, 10.2, 4.5, 1.4);
+
+        // 7. 3D Dual-Element Rear Wing + DRS Actuator + Endplates
+        const rwGrad = ctx.createLinearGradient(-17.5, 0, -13, 0);
+        rwGrad.addColorStop(0, '#090d16');
+        rwGrad.addColorStop(0.6, midCol);
+        rwGrad.addColorStop(1, lightCol);
+        ctx.fillStyle = rwGrad;
+        ctx.fillRect(-17.2, -9.8, 4.2, 19.6);
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 0.7;
+        ctx.strokeRect(-17.2, -9.8, 4.2, 19.6);
+
+        // Rear wing endplates
+        ctx.fillStyle = darkCol;
+        ctx.fillRect(-17.8, -10.4, 5.2, 1.5);
+        ctx.fillRect(-17.8, 8.9, 5.2, 1.5);
+
+        // Blinking FIA Red Rear Rain / ERS Light (bright in rain/foggy or when moving)
+        const rainLightOn = (weather === 'rain' || weather === 'foggy')
+          ? (Math.floor(performance.now() / 160) % 2 === 0)
+          : true;
+        if (rainLightOn && !car.exploded) {
+          ctx.fillStyle = '#ff1e1e';
+          ctx.beginPath();
+          ctx.arc(-17.6, 0, 1.6, 0, Math.PI * 2);
+          ctx.fill();
+          if (weather === 'rain' || weather === 'foggy') {
+            const rlGlow = ctx.createRadialGradient(-18, 0, 1, -18, 0, 10);
+            rlGlow.addColorStop(0, 'rgba(255, 30, 30, 0.75)');
+            rlGlow.addColorStop(1, 'rgba(255, 30, 30, 0)');
+            ctx.fillStyle = rlGlow;
+            ctx.beginPath();
+            ctx.arc(-18, 0, 10, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // 8. Recessed Carbon Cockpit, Driver Helmet & Titanium 3D Halo Protection Bar
+        ctx.fillStyle = '#090d16';
+        ctx.beginPath();
+        ctx.ellipse(-1.0, 0, 5.2, 3.0, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Driver 3D Helmet with reflective visor
+        const helmGrad = ctx.createRadialGradient(-2.2, -0.8, 0.4, -1.8, 0, 2.7);
+        helmGrad.addColorStop(0, '#ffffff');
+        helmGrad.addColorStop(0.5, '#f5c518');
+        helmGrad.addColorStop(1, '#b45309');
+        ctx.fillStyle = helmGrad;
+        ctx.beginPath();
+        ctx.arc(-1.8, 0, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Visor strip
+        ctx.fillStyle = '#0284c7';
+        ctx.beginPath();
+        ctx.arc(-1.2, 0, 2.1, -0.7, 0.7);
+        ctx.fill();
+
+        // 3D Titanium Halo hoop over cockpit
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(-2.5, -2.6);
+        ctx.quadraticCurveTo(3.5, -2.3, 4.2, 0);
+        ctx.quadraticCurveTo(3.5, 2.3, -2.5, 2.6);
+        ctx.moveTo(4.2, 0);
+        ctx.lineTo(1.2, 0);
+        ctx.stroke();
+
+        ctx.restore();
+
+        // 9. Crisp 3D Floating Nameplate above car
+        ctx.font = 'bold 12px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        let label = car.name;
+        if (car.eliminated) label += ' [VYŘAZEN]';
+        else if (car.exploded) label += ' [VYBOUCHL]';
+
+        const textW = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(9, 13, 22, 0.82)';
+        ctx.beginPath();
+        ctx.roundRect(-textW / 2 - 6, -30, textW + 12, 17, 4);
+        ctx.fill();
+        ctx.strokeStyle = car.color;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.fillStyle = car.exploded || car.eliminated ? '#fca5a5' : '#ffffff';
+        ctx.fillText(label, 0, -17.5);
+
+        // Vrak po vybuchu: kour, aby bylo jasne, ze auto uz nejede.
+        if (car.exploded) {
+          ctx.fillStyle = 'rgba(100,116,139,0.45)';
+          ctx.beginPath(); ctx.arc(-4, -6, 10, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(148,163,184,0.35)';
+          ctx.beginPath(); ctx.arc(4, -12, 13, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(30,41,59,0.5)';
+          ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+        }
+
+        ctx.restore();
+      }
+
+      // Emit water spray (in rain) or dust/smoke particles behind moving F1 cars
+      function updateAndRenderTireParticles(ctx, dt, weather) {
+        for (const car of renderCars.values()) {
+          if (car.speedKmh > 35 && !car.exploded && !car.eliminated && !car.finished) {
+            const backX = car.x - Math.cos(car.heading) * 15;
+            const backY = car.y - Math.sin(car.heading) * 15;
+            const perpX = -Math.sin(car.heading);
+            const perpY = Math.cos(car.heading);
+
+            if (weather === 'rain' || car.off) {
+              for (let side of [-1, 1]) {
+                tireParticles.push({
+                  x: backX + perpX * (side * 8) + (Math.random() - 0.5) * 3,
+                  y: backY + perpY * (side * 8) + (Math.random() - 0.5) * 3,
+                  vx: -Math.cos(car.heading) * (20 + Math.random() * 25) + (Math.random() - 0.5) * 14,
+                  vy: -Math.sin(car.heading) * (20 + Math.random() * 25) + (Math.random() - 0.5) * 14,
+                  r: weather === 'rain' ? (4 + Math.random() * 4) : (3 + Math.random() * 3),
+                  alpha: weather === 'rain' ? 0.42 : 0.35,
+                  life: 0.45,
+                  maxLife: 0.45,
+                  color: car.off ? '120, 95, 65' : '200, 225, 255'
+                });
+              }
+            }
+          }
+        }
+
+        for (let i = tireParticles.length - 1; i >= 0; i--) {
+          const p = tireParticles[i];
+          p.life -= dt;
+          if (p.life <= 0) {
+            tireParticles.splice(i, 1);
+            continue;
+          }
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.r += 14 * dt;
+          const a = (p.life / p.maxLife) * p.alpha;
+          ctx.fillStyle = `rgba(${p.color}, ${a.toFixed(3)})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Render screen-space 3D weather overlays (Sunny warm sunbeams, Rain storm streaks, Foggy volumetric clouds)
+      function renderWeatherOverlay(ctx, cw, ch, dt, weather) {
+        if (weather === 'sunny') {
+          // Warm directional sunlight glow from top-left + subtle vignette
+          const sunGrad = ctx.createRadialGradient(cw * 0.15, ch * 0.12, 10, cw * 0.15, ch * 0.12, Math.max(cw, ch) * 0.75);
+          sunGrad.addColorStop(0, 'rgba(254, 240, 138, 0.16)');
+          sunGrad.addColorStop(0.35, 'rgba(253, 224, 71, 0.06)');
+          sunGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = sunGrad;
+          ctx.fillRect(0, 0, cw, ch);
+        } else if (weather === 'rain') {
+          // Cool overcast atmosphere tint
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.22)';
+          ctx.fillRect(0, 0, cw, ch);
+
+          // Falling 3D diagonal rain streaks
+          ctx.save();
+          ctx.strokeStyle = 'rgba(186, 230, 253, 0.42)';
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          for (const drop of rainDrops) {
+            drop.y += drop.speed * dt;
+            drop.x -= drop.speed * 0.22 * dt;
+            if (drop.y > ch + 30) {
+              drop.y = -20;
+              drop.x = Math.random() * (cw + 200);
+            }
+            if (drop.x < -30) {
+              drop.x = cw + 20;
+            }
+            ctx.moveTo(drop.x, drop.y);
+            ctx.lineTo(drop.x - drop.len * 0.22, drop.y + drop.len);
+          }
+          ctx.stroke();
+          ctx.restore();
+        } else if (weather === 'foggy') {
+          // Volumetric moving fog banks + atmospheric haze
+          ctx.save();
+          for (const cloud of fogClouds) {
+            cloud.x = (cloud.x + cloud.vx * dt + WORLD_W) % WORLD_W;
+            cloud.y = (cloud.y + cloud.vy * dt + WORLD_H) % WORLD_H;
+            const sx = (cloud.x / WORLD_W) * cw;
+            const sy = (cloud.y / WORLD_H) * ch;
+            const sr = cloud.r * (Math.max(cw, ch) / 1100);
+            const fg = ctx.createRadialGradient(sx, sy, sr * 0.1, sx, sy, sr);
+            fg.addColorStop(0, `rgba(226, 232, 240, ${cloud.alpha})`);
+            fg.addColorStop(1, 'rgba(226, 232, 240, 0)');
+            ctx.fillStyle = fg;
+            ctx.beginPath();
+            ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          // Soft horizon mist veil
+          const mistGrad = ctx.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * 0.22, cw / 2, ch / 2, Math.max(cw, ch) * 0.72);
+          mistGrad.addColorStop(0, 'rgba(203, 213, 225, 0.08)');
+          mistGrad.addColorStop(1, 'rgba(148, 163, 184, 0.34)');
+          ctx.fillStyle = mistGrad;
+          ctx.fillRect(0, 0, cw, ch);
+          ctx.restore();
+        }
+      }
+
+      // Minimap rendering
+      function drawMinimapBase() {
+        renderMinimap();
+      }
+
+      function renderMinimap() {
+        const ctx = minimapCanvas.getContext('2d');
+        const w = minimapCanvas.width;
+        const h = minimapCanvas.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#090d16';
+        ctx.fillRect(0, 0, w, h);
+
+        if (!trackData || !trackData.center) return;
+
+        const sx = w / WORLD_W;
+        const sy = h / WORLD_H;
+
+        ctx.save();
+        ctx.scale(sx, sy);
+
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = ROAD_HALF * 1.6;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(trackData.center[0].x, trackData.center[0].y);
+        for (let i = 1; i < trackData.center.length; i++) {
+          ctx.lineTo(trackData.center[i].x, trackData.center[i].y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        const myMapCar = renderCars.get(myId);
+        const isDeadMap = myMapCar && (myMapCar.eliminated || myMapCar.exploded);
+        // Mrtvy hrac je divak, v mlze vidi vsechny auta na minimapě (televizni prenos).
+        const fogMinimap = ((serverState && serverState.weather) || lobbyState.weather || 'sunny') === 'foggy' && !isDeadMap;
+        for (const car of renderCars.values()) {
+          if (fogMinimap && car.id !== myId) continue;
+          ctx.fillStyle = car.color;
+          ctx.beginPath();
+          ctx.arc(car.x, car.y, 34, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 10;
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+      function resizeRaceCanvas() {
+        raceCanvas.width = window.innerWidth;
+        raceCanvas.height = window.innerHeight;
+      }
+
+      window.addEventListener('resize', () => {
+        if (screens.race.classList.contains('active')) {
+          resizeRaceCanvas();
+        }
+      });
+
+      // Main render loop (camera oriented North, dead players get dynamic viewport over all active cars)
+      let lastFrameTime = performance.now();
+      function renderLoop(now) {
+        const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+        lastFrameTime = now;
+
+        if (keysDown.left) {
+          steeringHeading = normalizeAngle(steeringHeading - 3.2 * dt);
+          updateWheelVisual();
+        }
+        if (keysDown.right) {
+          steeringHeading = normalizeAngle(steeringHeading + 3.2 * dt);
+          updateWheelVisual();
+        }
+
+        if (screens.race.classList.contains('active') && trackData) {
+          const ctx = raceCanvas.getContext('2d');
+          const cw = raceCanvas.width;
+          const ch = raceCanvas.height;
+          const activeWeather = (serverState && serverState.weather) || lobbyState.weather || 'sunny';
+
+          ctx.clearRect(0, 0, cw, ch);
+          ctx.fillStyle = activeWeather === 'rain' ? '#0b1911' : (activeWeather === 'foggy' ? '#17281d' : '#142f18');
+          ctx.fillRect(0, 0, cw, ch);
+
+          // v6: mrtvy hrac (vyrazeny i vybuchly) nesleduje vedouciho, ale dynamicky vyrez
+          // pres vsechna jeste jedouci auta. Kdyz jsou auta u sebe, je vyrez blizsi,
+          // kdyz se rozjedou, oddali se az na celou mapu. Ziva auta sleduji jen sebe.
+          const myFocusCar = renderCars.get(myId);
+          const isDeadSpectator = myFocusCar && (myFocusCar.eliminated || myFocusCar.exploded);
+          let focusCar = isDeadSpectator ? null : myFocusCar;
+          if (!focusCar && !isDeadSpectator && renderCars.size > 0) {
+            focusCar = renderCars.values().next().value;
+          }
+          let spectateCenter = null, spectateZoom = null;
+          // v8: navrat na trat. Kdyz je zive vlastni auto mimo trat, najdi nejblizsi bod
+          // stredove cary (360 bodu, levne) a uloz ho pro sipku a pro oddaleni kamery.
+          offTrackNearest = null;
+          if (!isDeadSpectator && myFocusCar && myFocusCar.off && trackData && trackData.center) {
+            let bestD = 1e18, bestPt = null;
+            for (let i = 0; i < trackData.center.length; i++) {
+              const pt = trackData.center[i];
+              const d = Math.hypot(pt.x - myFocusCar.x, pt.y - myFocusCar.y);
+              if (d < bestD) { bestD = d; bestPt = pt; }
+            }
+            if (bestPt) offTrackNearest = { x: bestPt.x, y: bestPt.y, dist: bestD };
+          }
+          // Mlha: viditelnost 50 % = polovicni viditelny vyrez kolem vlastniho auta.
+          let viewSpan = Math.min(cw, ch) < 500 ? 760 : 920;
+          if (activeWeather === 'foggy' && !isDeadSpectator) viewSpan *= 0.5;
+          // v8: mimo trat se kamera oddali, aby byla trat videt driv. Jen za slunce/deste,
+          // v mlze zustava mlhovy vyrez, jinak by oddaleni mlhu obchazelo.
+          // Vzdalenost 200 j. = faktor 1, 800 j. a vic = faktor 2 (max).
+          if (!isDeadSpectator && offTrackNearest && offTrackNearest.dist > 200 && activeWeather !== 'foggy') {
+            const offFactor = Math.min(2, 1 + (offTrackNearest.dist - 200) / 600);
+            viewSpan *= offFactor;
+          }
+          const zoom = Math.max(cw / viewSpan, ch / viewSpan) * 0.72;
+          if (isDeadSpectator) {
+            const activeCars = Array.from(renderCars.values()).filter(function(cc) { return !cc.exploded && !cc.eliminated && !cc.finished; });
+            if (activeCars.length > 0) {
+              let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+              activeCars.forEach(function(cc) { if (cc.x < minX) minX = cc.x; if (cc.x > maxX) maxX = cc.x; if (cc.y < minY) minY = cc.y; if (cc.y > maxY) maxY = cc.y; });
+              const pad = 200;
+              const reqW = (maxX - minX) + pad * 2;
+              const reqH = (maxY - minY) + pad * 2;
+              // Nepriblizovat vic nez normalni kamera, jen oddalovat podle rozptylu aut.
+              spectateZoom = Math.min(cw / reqW, ch / reqH, zoom);
+              spectateCenter = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+            }
+          }
+
+          ctx.save();
+          if (spectateCenter) {
+            ctx.translate(cw / 2, ch / 2);
+            ctx.scale(spectateZoom, spectateZoom);
+            ctx.translate(-spectateCenter.x, -spectateCenter.y);
+          } else if (focusCar) {
+            ctx.translate(cw / 2, ch / 2);
+            ctx.scale(zoom, zoom);
+            ctx.translate(-focusCar.x, -focusCar.y);
+          } else {
+            const fitScale = Math.min(cw / WORLD_W, ch / WORLD_H);
+            ctx.scale(fitScale, fitScale);
+          }
+
+          // Draw pre-baked 3D realistic world & track
+          if (!bakedWorldCanvas || bakedWorldWeather !== activeWeather) {
+            bakeRealistic3DTrack(trackData, activeWeather);
+          }
+          if (bakedWorldCanvas) {
+            ctx.drawImage(bakedWorldCanvas, 0, 0);
+          }
+
+          // World 3D safety barrier border
+          ctx.strokeStyle = 'rgba(226, 232, 240, 0.35)';
+          ctx.lineWidth = 8;
+          ctx.strokeRect(0, 0, WORLD_W, WORLD_H);
+
+          // Render tire spray / dust particles
+          updateAndRenderTireParticles(ctx, dt, activeWeather);
+
+          // Draw all 3D Formula 1 cars; v mlze se soupeři mimo 50 % dosah nekreslí.
+          for (const car of renderCars.values()) {
+            if (activeWeather === 'foggy' && !isDeadSpectator && focusCar && car.id !== focusCar.id) {
+              const dFog = Math.hypot(car.x - focusCar.x, car.y - focusCar.y);
+              if (dFog > viewSpan / 2) continue;
+            }
+            drawRealistic3DFormula1Car(ctx, car, activeWeather);
+          }
+
+          ctx.restore();
+
+          // Render dynamic 3D weather atmosphere (Sunny / Rain / Foggy)
+          renderWeatherOverlay(ctx, cw, ch, dt, activeWeather);
+
+          // v8: sipka k nejblizsi trati, v obrazovkovych souradnicich. Auto je uprostred
+          // obrazovky, sipka je 160 px od stredu smerem k nejblizsimu bodu trati,
+          // se vzdalenosti. Zobrazuje se jen kdyz je auto zretelne mimo trat (> 80 j.),
+          // ne pri pouhem dotyku s krajem silnice.
+          if (!isDeadSpectator && offTrackNearest && offTrackNearest.dist > 80 && focusCar) {
+            const ang = Math.atan2(offTrackNearest.y - focusCar.y, offTrackNearest.x - focusCar.x);
+            const ax = cw / 2 + Math.cos(ang) * 160;
+            const ay = ch / 2 + Math.sin(ang) * 160;
+            ctx.save();
+            ctx.translate(ax, ay);
+            ctx.rotate(ang);
+            ctx.fillStyle = '#f5c518';
+            ctx.strokeStyle = '#090d16';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(26, 0);
+            ctx.lineTo(-14, -18);
+            ctx.lineTo(-6, 0);
+            ctx.lineTo(-14, 18);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+            ctx.save();
+            ctx.font = 'bold 16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#090d16';
+            ctx.fillStyle = '#ffffff';
+            const distTxt = 'Trať ' + Math.round(offTrackNearest.dist) + ' j.';
+            ctx.strokeText(distTxt, ax, ay - 30);
+            ctx.fillText(distTxt, ax, ay - 30);
+            ctx.restore();
+          }
+
+
+          renderMinimap();
+          updateHUD();
+        }
+
+        requestAnimationFrame(renderLoop);
+      }
+
+      requestAnimationFrame(renderLoop);
+
+      // Render qualifying grid screen
+      function renderQualScreen(results) {
+        resultsList.innerHTML = '';
+        results.forEach(r => {
+          const row = document.createElement('div');
+          row.className = 'result-row';
+          const main = document.createElement('div');
+          main.className = 'result-main';
+          const posSpan = document.createElement('span');
+          posSpan.textContent = `${r.position}.`;
+          const dot = document.createElement('span');
+          dot.className = 'color-dot'; dot.style.backgroundColor = r.color;
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = r.name;
+          const statusSpan = document.createElement('span');
+          statusSpan.className = 'result-status';
+          statusSpan.style.color = '#f5c518';
+          statusSpan.textContent = r.totalTime ? formatRaceTime(r.totalTime) : 'nedojel (podle postupu)';
+          main.appendChild(posSpan); main.appendChild(dot); main.appendChild(nameSpan); main.appendChild(statusSpan);
+          row.appendChild(main);
+          resultsList.appendChild(row);
+        });
+      }
+
+      // Render finish screen results
+      function renderFinishScreen(results) {
+        resultsList.innerHTML = '';
+        results.forEach(r => {
+          const row = document.createElement('div');
+          row.className = 'result-row';
+
+          const main = document.createElement('div');
+          main.className = 'result-main';
+
+          const posSpan = document.createElement('span');
+          posSpan.textContent = `${r.position}.`;
+
+          const dot = document.createElement('span');
+          dot.className = 'color-dot';
+          dot.style.backgroundColor = r.color;
+
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = r.name;
+
+          const statusSpan = document.createElement('span');
+          statusSpan.className = 'result-status';
+          if (r.status === 'exploded') {
+            statusSpan.textContent = 'vybouchl';
+            statusSpan.style.color = '#f87171';
+          } else if (r.status === 'eliminated') {
+            statusSpan.textContent = 'vyřazen';
+            statusSpan.style.color = '#fb923c';
+          } else {
+            statusSpan.textContent = formatRaceTime(r.totalTime);
+            statusSpan.style.color = '#f5c518';
+          }
+
+          main.appendChild(posSpan);
+          main.appendChild(dot);
+          main.appendChild(nameSpan);
+          main.appendChild(statusSpan);
+
+          const lapsDiv = document.createElement('div');
+          lapsDiv.className = 'result-laps';
+          if (Array.isArray(r.lapTimes) && r.lapTimes.length > 0) {
+            lapsDiv.textContent = 'Časy kol: ' + r.lapTimes.map((t, idx) => `${idx + 1}. kolo ${formatRaceTime(t)}`).join(' | ');
+          } else {
+            lapsDiv.textContent = 'Časy kol: žádná dokončená kola';
+          }
+          const statsDiv = document.createElement('div');
+          statsDiv.className = 'result-laps';
+          const bestTxt = r.bestLap ? formatRaceTime(r.bestLap) : '—';
+          const gapTxt = (r.gapToWinner === null || r.gapToWinner === undefined) ? '—' : ('+' + formatRaceTime(r.gapToWinner));
+          statsDiv.textContent = 'Nejlepší kolo: ' + bestTxt + ' | Max rychlost: ' + (r.maxSpeedKmh || 0) + ' km/h | Mimo trať celkem: ' + (r.offSecondsTotal || 0) + ' s | Mezera k vítězi: ' + gapTxt;
+
+          row.appendChild(main);
+          row.appendChild(lapsDiv);
+          row.appendChild(statsDiv);
+          resultsList.appendChild(row);
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

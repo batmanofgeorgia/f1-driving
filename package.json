@@ -1,0 +1,1 @@
+{"dependencies":{"ws":"^8.18.0"},"description":"F1 Driving — lokální multiplayerová závodní hra","main":"server.js","name":"f1-driving","scripts":{"start":"node server.js"},"version":"1.0.0"}
