@@ -736,6 +736,7 @@
       <div id="hudOffWarn" class="hud-chip warn" style="display:none;">MIMO TRAŤ</div>
       <div id="hudExplodedWarn" class="hud-chip exploded-banner" style="display:none;">VYBOUCHL JSI — sleduješ závod</div>
       <div id="hudQual" class="hud-chip" style="display:none; background:linear-gradient(180deg, rgba(168,85,247,0.95), rgba(126,34,206,0.95));">KVALIFIKACE – 1 kolo</div>
+      <div id="hudDebug" class="hud-chip">– FPS · – stavů/s</div>
     </div>
 
     <canvas id="minimapCanvas" width="160" height="90"></canvas>
@@ -795,7 +796,15 @@
       let WORLD_W = 1600;
       let WORLD_H = 900;
       const ROAD_HALF = 58;
-      const INTERP_FACTOR = 0.45;
+      // Plynulost (v9.1): stav se nehladi pevnym faktorem pri kazde zprave,
+      // ale kazdy snimek displeje smerem k poslednimu stavu (casove korektni,
+      // tau 60 ms); vlastni auto se navic predikuje lokalne, aby zataceni
+      // reagovalo hned a ne az po ceste na server a zpet.
+      const INTERP_TAU = 0.06; // s, casova konstanta vyhlazeni ostatnich aut
+      const PREDICT_TURN_RATE = 9; // rad/s, stejne jako server
+      const PREDICT_ACCEL = 380;
+      const PREDICT_MAX_SPEED = 376;
+      const PREDICT_MAX_OFF_SPEED = 260;
 
       // Screens
       const screens = {
@@ -848,6 +857,13 @@
       // Race & Interpolation state
       let serverState = null;
       let renderCars = new Map(); // id -> { x, y, heading, ... }
+      let predictedOwn = null; // lokalni predikce vlastniho auta { x, y, heading, speed }
+      // Debug overlay: FPS a pocet stavu ze serveru za sekundu
+      let lastFrameFps = 0;
+      let stateMsgCount = 0;
+      let stateMsgWindowStart = performance.now();
+      let statesPerSecond = 0;
+      let debugLastUpdate = 0;
       let offTrackNearest = null; // {x, y, dist} pro zive vlastni auto mimo trat, jinak null
       let tireParticles = []; // realistic water spray / dust / tire smoke particles
       let rainDrops = [];
@@ -1237,6 +1253,7 @@
           const prevPhase = serverState ? serverState.phase : null;
           const prevQual = serverState ? serverState.isQualifying : null;
           serverState = msg;
+          stateMsgCount++;
           if (msg.phase === 'countdown' && prevPhase !== 'countdown') playedExplodedIds.clear();
           if (msg.isQualifying !== prevQual) playedExplodedIds.clear();
           const activeWeather = msg.weather || lobbyState.weather || 'sunny';
@@ -1270,14 +1287,16 @@
             if (!rc || prevPhase !== msg.phase || sc.finished) {
               // When a car finishes, snap immediately to its exact finish-line coordinates
               renderCars.set(sc.id, { ...sc });
-              if (sc.id === myId && prevPhase === null) {
-                steeringHeading = sc.heading;
-                updateWheelVisual();
+              if (sc.id === myId) {
+                predictedOwn = { x: sc.x, y: sc.y, heading: sc.heading, speed: (sc.speedKmh || 0) / 0.4 };
+                if (prevPhase === null) {
+                  steeringHeading = sc.heading;
+                  updateWheelVisual();
+                }
               }
             } else {
-              rc.x = rc.x + (sc.x - rc.x) * INTERP_FACTOR;
-              rc.y = rc.y + (sc.y - rc.y) * INTERP_FACTOR;
-              rc.heading = lerpAngle(rc.heading, sc.heading, INTERP_FACTOR);
+              // Pozici a smer pocita kazdy snimek renderLoop (vyhlazeni /
+              // predikce); tady jen neblokujici pole ze serveru.
               rc.name = sc.name;
               rc.color = sc.color;
               rc.lap = sc.lap;
@@ -1296,6 +1315,29 @@
           for (const existingId of renderCars.keys()) {
             if (!activeIds.has(existingId)) {
               renderCars.delete(existingId);
+            }
+          }
+
+          // Predikce vlastniho auta: dorovnani k serveru. Mala chyba se
+          // stahne jemne, velka (napr. po kolizi) se preskoci rovnou.
+          if (myId !== null && msg.phase === 'race') {
+            const mySc = (msg.cars || []).find(function (c) { return c.id === myId; });
+            if (mySc && !mySc.finished && !mySc.eliminated && !mySc.exploded) {
+              if (!predictedOwn) {
+                predictedOwn = { x: mySc.x, y: mySc.y, heading: mySc.heading, speed: (mySc.speedKmh || 0) / 0.4 };
+              } else {
+                const err = Math.hypot(predictedOwn.x - mySc.x, predictedOwn.y - mySc.y);
+                if (err > 60) {
+                  predictedOwn.x = mySc.x; predictedOwn.y = mySc.y; predictedOwn.heading = mySc.heading;
+                } else {
+                  predictedOwn.x += (mySc.x - predictedOwn.x) * 0.4;
+                  predictedOwn.y += (mySc.y - predictedOwn.y) * 0.4;
+                  predictedOwn.heading = lerpAngle(predictedOwn.heading, mySc.heading, 0.4);
+                }
+                predictedOwn.speed = (mySc.speedKmh || 0) / 0.4;
+              }
+            } else {
+              predictedOwn = null;
             }
           }
 
@@ -2105,7 +2147,7 @@
         else if (e.key === 'ArrowUp') { keysDown.up = false; updateGasVisual(); }
       });
 
-      // Send input to server at 30 Hz
+      // Send input to server at 60 Hz
       setInterval(() => {
         if (!serverState || (serverState.phase !== 'countdown' && serverState.phase !== 'race')) return;
         sendMsg({
@@ -2113,7 +2155,7 @@
           heading: steeringHeading,
           gas: gasPressed
         });
-      }, 1000 / 30);
+      }, 1000 / 60);
 
       // Update HUD elements
       function updateHUD() {
@@ -2607,6 +2649,8 @@
       function renderLoop(now) {
         const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
         lastFrameTime = now;
+        const instFps = dt > 0 ? 1 / dt : 0;
+        lastFrameFps = lastFrameFps === 0 ? instFps : lastFrameFps * 0.9 + instFps * 0.1;
 
         if (keysDown.left) {
           steeringHeading = normalizeAngle(steeringHeading - 3.2 * dt);
@@ -2622,6 +2666,39 @@
           const cw = raceCanvas.width;
           const ch = raceCanvas.height;
           const activeWeather = (serverState && serverState.weather) || lobbyState.weather || 'sunny';
+
+          // v9.1: plynuly pohyb kazdy snimek. Ostatni auta se exponencialne
+          // priblizuji k poslednimu stavu s casove korektnim faktorem
+          // (zadne skoky po 33 ms); vlastni auto se predikuje lokalne podle
+          // volantu a plynu, takze zataceni reaguje hned.
+          if (serverState && serverState.cars && (serverState.phase === 'race' || serverState.phase === 'countdown' || serverState.phase === 'finish' || serverState.phase === 'qualPause')) {
+            const speedScale = { slow: 0.7, normal: 1.0, fast: 1.3 }[serverState.speed] || 1.0;
+            const weatherScale = serverState.weather === 'rain' ? 0.9 : 1.0;
+            const f = 1 - Math.exp(-dt / INTERP_TAU);
+            for (const sc of serverState.cars) {
+              const rc = renderCars.get(sc.id);
+              if (!rc) continue;
+              const isMe = sc.id === myId;
+              const active = !sc.finished && !sc.eliminated && !sc.exploded;
+              if (isMe && serverState.phase === 'race' && active && predictedOwn) {
+                const dh = normalizeAngle(steeringHeading - predictedOwn.heading);
+                const maxStep = PREDICT_TURN_RATE * dt;
+                predictedOwn.heading = normalizeAngle(predictedOwn.heading + Math.max(-maxStep, Math.min(maxStep, dh)));
+                const maxSpd = (sc.off ? PREDICT_MAX_OFF_SPEED : PREDICT_MAX_SPEED) * speedScale * weatherScale;
+                if (gasPressed) predictedOwn.speed += PREDICT_ACCEL * speedScale * dt;
+                predictedOwn.speed *= Math.exp(-0.35 * dt);
+                if (sc.off) predictedOwn.speed *= Math.exp(-0.35 * dt);
+                predictedOwn.speed = Math.max(0, Math.min(maxSpd, predictedOwn.speed));
+                predictedOwn.x += Math.cos(predictedOwn.heading) * predictedOwn.speed * dt;
+                predictedOwn.y += Math.sin(predictedOwn.heading) * predictedOwn.speed * dt;
+                rc.x = predictedOwn.x; rc.y = predictedOwn.y; rc.heading = predictedOwn.heading;
+              } else {
+                rc.x += (sc.x - rc.x) * f;
+                rc.y += (sc.y - rc.y) * f;
+                rc.heading = lerpAngle(rc.heading, sc.heading, f);
+              }
+            }
+          }
 
           ctx.clearRect(0, 0, cw, ch);
           ctx.fillStyle = activeWeather === 'rain' ? '#0b1911' : (activeWeather === 'foggy' ? '#17281d' : '#142f18');
@@ -2756,6 +2833,16 @@
 
           renderMinimap();
           updateHUD();
+
+          // Debug overlay: FPS a pocet stavu ze serveru za sekundu (2x za sekundu)
+          if (now - debugLastUpdate > 500) {
+            statesPerSecond = Math.round(stateMsgCount * 1000 / Math.max(1, now - stateMsgWindowStart));
+            stateMsgCount = 0;
+            stateMsgWindowStart = now;
+            debugLastUpdate = now;
+            const dbg = document.getElementById('hudDebug');
+            if (dbg) dbg.textContent = Math.round(lastFrameFps) + ' FPS · ' + statesPerSecond + ' stavů/s';
+          }
         }
 
         requestAnimationFrame(renderLoop);

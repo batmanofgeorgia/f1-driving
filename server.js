@@ -20,7 +20,7 @@ const TOTAL_LAPS = 3;
 
 // Physics constants
 const TICK_HZ = 60;
-const BROADCAST_HZ = 30;
+const BROADCAST_HZ = 60;
 const DT = 1 / TICK_HZ;
 const MAX_SPEED = 376;
 const OFF_SPEED = 260;
