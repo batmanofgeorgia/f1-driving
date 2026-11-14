@@ -796,15 +796,15 @@
       let WORLD_W = 1600;
       let WORLD_H = 900;
       const ROAD_HALF = 58;
-      // Plynulost (v9.1): stav se nehladi pevnym faktorem pri kazde zprave,
-      // ale kazdy snimek displeje smerem k poslednimu stavu (casove korektni,
-      // tau 60 ms); vlastni auto se navic predikuje lokalne, aby zataceni
-      // reagovalo hned a ne az po ceste na server a zpet.
-      const INTERP_TAU = 0.06; // s, casova konstanta vyhlazeni ostatnich aut
-      const PREDICT_TURN_RATE = 9; // rad/s, stejne jako server
-      const PREDICT_ACCEL = 380;
-      const PREDICT_MAX_SPEED = 376;
-      const PREDICT_MAX_OFF_SPEED = 260;
+      // Plynulost (v9.2): zadna lokalni simulace. Vykresluje se okamzik
+      // 100 ms v minulosti, interpolovany mezi dvema snimky ze serveru
+      // (buffer poslednich ~10 stavu). Server totiz simuluje smyk:
+      // rychlost se otaci za smerem pomaleji (grip 2,4-6,5/s), takze
+      // predikce "auto jede tam, kam miri" se se serverem prala 60x/s
+      // a trasla kamerou. Interpolace nic nehada, jen kresli mezi
+      // skutecnymi pozicemi ze serveru.
+      const RENDER_DELAY_MS = 100;
+      const SNAP_BUFFER_MAX = 10;
 
       // Screens
       const screens = {
@@ -856,8 +856,8 @@
 
       // Race & Interpolation state
       let serverState = null;
-      let renderCars = new Map(); // id -> { x, y, heading, ... }
-      let predictedOwn = null; // lokalni predikce vlastniho auta { x, y, heading, speed }
+      let renderCars = new Map(); // id -> { x, y, heading, ... } (interpolovane pozice pro vykresleni)
+      let snaps = []; // buffer snimku ze serveru: [{ t, cars: Map(id -> car) }]
       // Debug overlay: FPS a pocet stavu ze serveru za sekundu
       let lastFrameFps = 0;
       let stateMsgCount = 0;
@@ -1280,64 +1280,26 @@
             playTone(880, 0.4, 'sine', 0.2, 0);
           }
 
-          const activeIds = new Set();
-          for (const sc of msg.cars || []) {
-            activeIds.add(sc.id);
-            const rc = renderCars.get(sc.id);
-            if (!rc || prevPhase !== msg.phase || sc.finished) {
-              // When a car finishes, snap immediately to its exact finish-line coordinates
-              renderCars.set(sc.id, { ...sc });
-              if (sc.id === myId) {
-                predictedOwn = { x: sc.x, y: sc.y, heading: sc.heading, speed: (sc.speedKmh || 0) / 0.4 };
-                if (prevPhase === null) {
-                  steeringHeading = sc.heading;
-                  updateWheelVisual();
-                }
-              }
-            } else {
-              // Pozici a smer pocita kazdy snimek renderLoop (vyhlazeni /
-              // predikce); tady jen neblokujici pole ze serveru.
-              rc.name = sc.name;
-              rc.color = sc.color;
-              rc.lap = sc.lap;
-              rc.lapTime = sc.lapTime;
-              rc.elapsed = sc.elapsed;
-              rc.finished = sc.finished;
-              rc.eliminated = sc.eliminated;
-              rc.exploded = sc.exploded;
-              rc.off = sc.off;
-              rc.offSecondsLap = sc.offSecondsLap;
-              rc.speedKmh = sc.speedKmh;
-              rc.progress = sc.progress;
-              rc.rank = sc.rank;
-            }
+          // Snimky pro interpolaci (v9.2): kazdy stav ze serveru se ulozi
+          // s casem prijeti. renderLoop pak vykresluje okamzik 100 ms
+          // v minulosti interpolovany mezi dvema snimky, ktere ho obklopuji.
+          const snapCars = new Map();
+          for (const sc of msg.cars || []) snapCars.set(sc.id, { ...sc });
+          if (prevPhase !== null && prevPhase !== msg.phase) {
+            // Zmena faze (startovni rost, cil): buffer se vymaze a auta
+            // se preskoci rovnou na nove pozice, at se nemicha stary stav.
+            snaps = [{ t: performance.now(), cars: snapCars }];
+            renderCars = new Map();
+            for (const [id, sc] of snapCars) renderCars.set(id, { ...sc });
+          } else {
+            snaps.push({ t: performance.now(), cars: snapCars });
+            if (snaps.length > SNAP_BUFFER_MAX) snaps.shift();
           }
-          for (const existingId of renderCars.keys()) {
-            if (!activeIds.has(existingId)) {
-              renderCars.delete(existingId);
-            }
-          }
-
-          // Predikce vlastniho auta: dorovnani k serveru. Mala chyba se
-          // stahne jemne, velka (napr. po kolizi) se preskoci rovnou.
-          if (myId !== null && msg.phase === 'race') {
-            const mySc = (msg.cars || []).find(function (c) { return c.id === myId; });
-            if (mySc && !mySc.finished && !mySc.eliminated && !mySc.exploded) {
-              if (!predictedOwn) {
-                predictedOwn = { x: mySc.x, y: mySc.y, heading: mySc.heading, speed: (mySc.speedKmh || 0) / 0.4 };
-              } else {
-                const err = Math.hypot(predictedOwn.x - mySc.x, predictedOwn.y - mySc.y);
-                if (err > 60) {
-                  predictedOwn.x = mySc.x; predictedOwn.y = mySc.y; predictedOwn.heading = mySc.heading;
-                } else {
-                  predictedOwn.x += (mySc.x - predictedOwn.x) * 0.4;
-                  predictedOwn.y += (mySc.y - predictedOwn.y) * 0.4;
-                  predictedOwn.heading = lerpAngle(predictedOwn.heading, mySc.heading, 0.4);
-                }
-                predictedOwn.speed = (mySc.speedKmh || 0) / 0.4;
-              }
-            } else {
-              predictedOwn = null;
+          if (prevPhase === null && myId !== null) {
+            const mySc = snapCars.get(myId);
+            if (mySc) {
+              steeringHeading = mySc.heading;
+              updateWheelVisual();
             }
           }
 
@@ -2667,35 +2629,58 @@
           const ch = raceCanvas.height;
           const activeWeather = (serverState && serverState.weather) || lobbyState.weather || 'sunny';
 
-          // v9.1: plynuly pohyb kazdy snimek. Ostatni auta se exponencialne
-          // priblizuji k poslednimu stavu s casove korektnim faktorem
-          // (zadne skoky po 33 ms); vlastni auto se predikuje lokalne podle
-          // volantu a plynu, takze zataceni reaguje hned.
-          if (serverState && serverState.cars && (serverState.phase === 'race' || serverState.phase === 'countdown' || serverState.phase === 'finish' || serverState.phase === 'qualPause')) {
-            const speedScale = { slow: 0.7, normal: 1.0, fast: 1.3 }[serverState.speed] || 1.0;
-            const weatherScale = serverState.weather === 'rain' ? 0.9 : 1.0;
-            const f = 1 - Math.exp(-dt / INTERP_TAU);
-            for (const sc of serverState.cars) {
-              const rc = renderCars.get(sc.id);
-              if (!rc) continue;
-              const isMe = sc.id === myId;
-              const active = !sc.finished && !sc.eliminated && !sc.exploded;
-              if (isMe && serverState.phase === 'race' && active && predictedOwn) {
-                const dh = normalizeAngle(steeringHeading - predictedOwn.heading);
-                const maxStep = PREDICT_TURN_RATE * dt;
-                predictedOwn.heading = normalizeAngle(predictedOwn.heading + Math.max(-maxStep, Math.min(maxStep, dh)));
-                const maxSpd = (sc.off ? PREDICT_MAX_OFF_SPEED : PREDICT_MAX_SPEED) * speedScale * weatherScale;
-                if (gasPressed) predictedOwn.speed += PREDICT_ACCEL * speedScale * dt;
-                predictedOwn.speed *= Math.exp(-0.35 * dt);
-                if (sc.off) predictedOwn.speed *= Math.exp(-0.35 * dt);
-                predictedOwn.speed = Math.max(0, Math.min(maxSpd, predictedOwn.speed));
-                predictedOwn.x += Math.cos(predictedOwn.heading) * predictedOwn.speed * dt;
-                predictedOwn.y += Math.sin(predictedOwn.heading) * predictedOwn.speed * dt;
-                rc.x = predictedOwn.x; rc.y = predictedOwn.y; rc.heading = predictedOwn.heading;
+          // v9.2: interpolace mezi snimky ze serveru. Vykresluje se okamzik
+          // 100 ms v minulosti, takze kazdy snimek displeje lezi presne
+          // mezi dvema skutecnymi pozicemi ze serveru — zadne skoky,
+          // zadne hadani fyziky, zadne prestrelovani.
+          if (snaps.length > 0) {
+            const renderT = now - RENDER_DELAY_MS;
+            let snapA = snaps[snaps.length - 1];
+            let snapB = snapA;
+            if (renderT <= snaps[0].t) {
+              snapA = snaps[0];
+              snapB = snaps[0];
+            } else {
+              for (let i = 0; i < snaps.length - 1; i++) {
+                if (renderT <= snaps[i + 1].t) { snapA = snaps[i]; snapB = snaps[i + 1]; break; }
+              }
+            }
+            let alpha = 0;
+            if (snapB.t > snapA.t) alpha = Math.max(0, Math.min(1, (renderT - snapA.t) / (snapB.t - snapA.t)));
+            for (const [id, sc] of snapB.cars) {
+              let rc = renderCars.get(id);
+              if (!rc) {
+                rc = { ...sc };
+                renderCars.set(id, rc);
+              }
+              const pc = snapA.cars.get(id);
+              if (!pc || snapA === snapB || sc.finished) {
+                // Nove auto, jen jeden snimek v bufferu, nebo dojete auto:
+                // preskocit rovnou na nejnovejsi pozici.
+                rc.x = sc.x; rc.y = sc.y; rc.heading = sc.heading;
               } else {
-                rc.x += (sc.x - rc.x) * f;
-                rc.y += (sc.y - rc.y) * f;
-                rc.heading = lerpAngle(rc.heading, sc.heading, f);
+                rc.x = pc.x + (sc.x - pc.x) * alpha;
+                rc.y = pc.y + (sc.y - pc.y) * alpha;
+                rc.heading = lerpAngle(pc.heading, sc.heading, alpha);
+              }
+              // Neblokujici pole vzdy z nejnovejsiho snimku.
+              rc.name = sc.name;
+              rc.color = sc.color;
+              rc.lap = sc.lap;
+              rc.lapTime = sc.lapTime;
+              rc.elapsed = sc.elapsed;
+              rc.finished = sc.finished;
+              rc.eliminated = sc.eliminated;
+              rc.exploded = sc.exploded;
+              rc.off = sc.off;
+              rc.offSecondsLap = sc.offSecondsLap;
+              rc.speedKmh = sc.speedKmh;
+              rc.progress = sc.progress;
+              rc.rank = sc.rank;
+            }
+            for (const existingId of renderCars.keys()) {
+              if (!snapB.cars.has(existingId)) {
+                renderCars.delete(existingId);
               }
             }
           }
