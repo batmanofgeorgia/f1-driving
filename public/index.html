@@ -2119,9 +2119,13 @@
         });
       }, 1000 / 60);
 
-      // Update HUD elements
+      // Update HUD elements (v9.3: max 10x za sekundu — DOM zapisy kazdy snimek jsou zbytecne)
+      let lastHudUpdate = 0;
       function updateHUD() {
         if (!serverState || !serverState.cars) return;
+        const hudNow = performance.now();
+        if (hudNow - lastHudUpdate < 100) return;
+        lastHudUpdate = hudNow;
         const cars = serverState.cars;
         const totalPlayers = Math.max(2, cars.length);
         const myCar = cars.find(c => c.id === myId) || cars[0];
@@ -2176,6 +2180,226 @@
       }
 
       // Draw realistic 3D sculpted Formula 1 car top-down at (x, y) facing `heading`
+      // v9.3: karoserie auta se predkresli do sprite (jeden canvas na
+      // barvu/pocasi/blikani), za snimek se pak jen otoceny drawImage.
+      // Bez toho kazde auto stavelo ~8 gradientu a merilo text kazdy snimek.
+      const CAR_SPRITE_W = 96, CAR_SPRITE_H = 64, CAR_SPRITE_CX = 48, CAR_SPRITE_CY = 32;
+      const carSpriteCache = new Map();
+      const labelWidthCache = new Map();
+      function paintCarBody(c, color, weather, lightOn, exploded) {
+        const lightCol = shadeHexColor(color, 55);
+        const midCol = color;
+        const darkCol = shadeHexColor(color, -65);
+        // 2. Carbon-fiber floor plank & rear diffuser undertray (3D base layer)
+        c.fillStyle = '#0f172a';
+        c.strokeStyle = '#334155';
+        c.lineWidth = 0.8;
+        c.beginPath();
+        c.moveTo(-15, -8.5);
+        c.lineTo(6, -8);
+        c.lineTo(11, -3.5);
+        c.lineTo(11, 3.5);
+        c.lineTo(6, 8);
+        c.lineTo(-15, 8.5);
+        c.closePath();
+        c.fill();
+        c.stroke();
+
+        // 3. Carbon wishbone suspension arms (front and rear double wishbones)
+        c.strokeStyle = '#64748b';
+        c.lineWidth = 1.6;
+        c.beginPath();
+        // Rear wishbones
+        c.moveTo(-11, -4); c.lineTo(-10, -10);
+        c.moveTo(-7, -4);  c.lineTo(-10, -10);
+        c.moveTo(-11, 4);  c.lineTo(-10, 10);
+        c.moveTo(-7, 4);   c.lineTo(-10, 10);
+        // Front wishbones
+        c.moveTo(6, -2.5); c.lineTo(9.5, -9.5);
+        c.moveTo(11, -2);  c.lineTo(9.5, -9.5);
+        c.moveTo(6, 2.5);  c.lineTo(9.5, 9.5);
+        c.moveTo(11, 2);   c.lineTo(9.5, 9.5);
+        c.stroke();
+
+        // 4. 3D Sculpted Pirelli F1 Tires with cylindrical shading and colored sidewall rings
+        function draw3DTire(tx, ty, tw, th) {
+          c.save();
+          c.translate(tx, ty);
+          const tGrad = c.createLinearGradient(0, -th / 2, 0, th / 2);
+          tGrad.addColorStop(0, '#090d16');
+          tGrad.addColorStop(0.35, '#334155');
+          tGrad.addColorStop(0.7, '#1e293b');
+          tGrad.addColorStop(1, '#090d16');
+          c.fillStyle = tGrad;
+          c.beginPath();
+          c.roundRect(-tw / 2, -th / 2, tw, th, 2);
+          c.fill();
+          c.strokeStyle = '#020617';
+          c.lineWidth = 0.9;
+          c.stroke();
+
+          // Tire tread specular band
+          c.strokeStyle = 'rgba(255,255,255,0.14)';
+          c.lineWidth = 1;
+          c.beginPath();
+          c.moveTo(-tw / 2 + 1, -0.5);
+          c.lineTo(tw / 2 - 1, -0.5);
+          c.stroke();
+          c.restore();
+        }
+
+        // Rear wide F1 tires & Front F1 tires
+        draw3DTire(-10.5, -10.8, 9.2, 5.6);
+        draw3DTire(-10.5, 10.8, 9.2, 5.6);
+        draw3DTire(9.5, -9.8, 7.8, 4.6);
+        draw3DTire(9.5, 9.8, 7.8, 4.6);
+
+        // 5. Sculpted 3D Sidepods & Engine Cover with metallic gradient
+        const bodyGrad = c.createLinearGradient(0, -8, 0, 8);
+        bodyGrad.addColorStop(0, darkCol);
+        bodyGrad.addColorStop(0.28, midCol);
+        bodyGrad.addColorStop(0.48, lightCol);
+        bodyGrad.addColorStop(0.72, midCol);
+        bodyGrad.addColorStop(1, darkCol);
+
+        c.fillStyle = bodyGrad;
+        c.beginPath();
+        c.moveTo(-14, -3.2);
+        c.lineTo(-6, -7.8);
+        c.lineTo(2.5, -7.2);
+        c.lineTo(5.5, -4.0);
+        c.lineTo(18.5, -1.6);
+        c.lineTo(19.5, 0);
+        c.lineTo(18.5, 1.6);
+        c.lineTo(5.5, 4.0);
+        c.lineTo(2.5, 7.2);
+        c.lineTo(-6, 7.8);
+        c.lineTo(-14, 3.2);
+        c.closePath();
+        c.fill();
+
+        // Sidepod radiator intakes (3D recessed dark ducts)
+        c.fillStyle = '#090d16';
+        c.beginPath();
+        c.moveTo(3.5, -6.6); c.lineTo(1.5, -4.0); c.lineTo(-1, -4.5); c.lineTo(1.5, -6.8); c.closePath();
+        c.moveTo(3.5, 6.6);  c.lineTo(1.5, 4.0);  c.lineTo(-1, 4.5);  c.lineTo(1.5, 6.8);  c.closePath();
+        c.fill();
+
+        // Central 3D Spine / Shark-fin Engine Cover & Specular Nose Ridge
+        const spineGrad = c.createLinearGradient(-14, -2, 18, 2);
+        spineGrad.addColorStop(0, darkCol);
+        spineGrad.addColorStop(0.5, lightCol);
+        spineGrad.addColorStop(1, '#ffffff');
+        c.strokeStyle = spineGrad;
+        c.lineWidth = 1.3;
+        c.beginPath();
+        c.moveTo(-13.5, 0);
+        c.lineTo(18, 0);
+        c.stroke();
+
+        // 6. Multi-element 3D Front Wing with endplates
+        const fwGrad = c.createLinearGradient(14, 0, 19, 0);
+        fwGrad.addColorStop(0, '#0f172a');
+        fwGrad.addColorStop(0.5, midCol);
+        fwGrad.addColorStop(1, lightCol);
+        c.fillStyle = fwGrad;
+        c.beginPath();
+        c.moveTo(14.5, -11.2);
+        c.lineTo(18.2, -10.2);
+        c.lineTo(19.2, 0);
+        c.lineTo(18.2, 10.2);
+        c.lineTo(14.5, 11.2);
+        c.lineTo(15.5, 0);
+        c.closePath();
+        c.fill();
+        c.strokeStyle = 'rgba(255,255,255,0.45)';
+        c.lineWidth = 0.8;
+        c.stroke();
+
+        // Front wing endplates
+        c.fillStyle = midCol;
+        c.fillRect(14.2, -11.6, 4.5, 1.4);
+        c.fillRect(14.2, 10.2, 4.5, 1.4);
+
+        // 7. 3D Dual-Element Rear Wing + DRS Actuator + Endplates
+        const rwGrad = c.createLinearGradient(-17.5, 0, -13, 0);
+        rwGrad.addColorStop(0, '#090d16');
+        rwGrad.addColorStop(0.6, midCol);
+        rwGrad.addColorStop(1, lightCol);
+        c.fillStyle = rwGrad;
+        c.fillRect(-17.2, -9.8, 4.2, 19.6);
+        c.strokeStyle = '#e2e8f0';
+        c.lineWidth = 0.7;
+        c.strokeRect(-17.2, -9.8, 4.2, 19.6);
+
+        // Rear wing endplates
+        c.fillStyle = darkCol;
+        c.fillRect(-17.8, -10.4, 5.2, 1.5);
+        c.fillRect(-17.8, 8.9, 5.2, 1.5);
+
+        if (lightOn && !exploded) {
+          c.fillStyle = '#ff1e1e';
+          c.beginPath();
+          c.arc(-17.6, 0, 1.6, 0, Math.PI * 2);
+          c.fill();
+          if (weather === 'rain' || weather === 'foggy') {
+            const rlGlow = c.createRadialGradient(-18, 0, 1, -18, 0, 10);
+            rlGlow.addColorStop(0, 'rgba(255, 30, 30, 0.75)');
+            rlGlow.addColorStop(1, 'rgba(255, 30, 30, 0)');
+            c.fillStyle = rlGlow;
+            c.beginPath();
+            c.arc(-18, 0, 10, 0, Math.PI * 2);
+            c.fill();
+          }
+        }
+
+        // 8. Recessed Carbon Cockpit, Driver Helmet & Titanium 3D Halo Protection Bar
+        c.fillStyle = '#090d16';
+        c.beginPath();
+        c.ellipse(-1.0, 0, 5.2, 3.0, 0, 0, Math.PI * 2);
+        c.fill();
+
+        // Driver 3D Helmet with reflective visor
+        const helmGrad = c.createRadialGradient(-2.2, -0.8, 0.4, -1.8, 0, 2.7);
+        helmGrad.addColorStop(0, '#ffffff');
+        helmGrad.addColorStop(0.5, '#f5c518');
+        helmGrad.addColorStop(1, '#b45309');
+        c.fillStyle = helmGrad;
+        c.beginPath();
+        c.arc(-1.8, 0, 2.5, 0, Math.PI * 2);
+        c.fill();
+
+        // Visor strip
+        c.fillStyle = '#0284c7';
+        c.beginPath();
+        c.arc(-1.2, 0, 2.1, -0.7, 0.7);
+        c.fill();
+
+        // 3D Titanium Halo hoop over cockpit
+        c.strokeStyle = '#cbd5e1';
+        c.lineWidth = 1.3;
+        c.beginPath();
+        c.moveTo(-2.5, -2.6);
+        c.quadraticCurveTo(3.5, -2.3, 4.2, 0);
+        c.quadraticCurveTo(3.5, 2.3, -2.5, 2.6);
+        c.moveTo(4.2, 0);
+        c.lineTo(1.2, 0);
+        c.stroke();
+
+      }
+      function getCarSprite(color, weather, lightOn, exploded) {
+        const key = color + '|' + weather + '|' + (lightOn ? 1 : 0) + '|' + (exploded ? 1 : 0);
+        let s = carSpriteCache.get(key);
+        if (s) return s;
+        const cv = document.createElement('canvas');
+        cv.width = CAR_SPRITE_W; cv.height = CAR_SPRITE_H;
+        const c = cv.getContext('2d');
+        c.translate(CAR_SPRITE_CX, CAR_SPRITE_CY);
+        paintCarBody(c, color, weather, lightOn, exploded);
+        carSpriteCache.set(key, cv);
+        return cv;
+      }
+
       function drawRealistic3DFormula1Car(ctx, car, weather) {
         ctx.save();
         ctx.translate(car.x, car.y);
@@ -2183,10 +2407,6 @@
         if (car.eliminated || car.exploded) {
           ctx.globalAlpha = 0.45;
         }
-
-        const lightCol = shadeHexColor(car.color, 55);
-        const midCol = car.color;
-        const darkCol = shadeHexColor(car.color, -65);
 
         // 1. Soft 3D directional drop shadow underneath the F1 car
         ctx.save();
@@ -2200,209 +2420,14 @@
         ctx.fill();
         ctx.restore();
 
-        ctx.save();
-        ctx.rotate(car.heading);
-
-        // 2. Carbon-fiber floor plank & rear diffuser undertray (3D base layer)
-        ctx.fillStyle = '#0f172a';
-        ctx.strokeStyle = '#334155';
-        ctx.lineWidth = 0.8;
-        ctx.beginPath();
-        ctx.moveTo(-15, -8.5);
-        ctx.lineTo(6, -8);
-        ctx.lineTo(11, -3.5);
-        ctx.lineTo(11, 3.5);
-        ctx.lineTo(6, 8);
-        ctx.lineTo(-15, 8.5);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        // 3. Carbon wishbone suspension arms (front and rear double wishbones)
-        ctx.strokeStyle = '#64748b';
-        ctx.lineWidth = 1.6;
-        ctx.beginPath();
-        // Rear wishbones
-        ctx.moveTo(-11, -4); ctx.lineTo(-10, -10);
-        ctx.moveTo(-7, -4);  ctx.lineTo(-10, -10);
-        ctx.moveTo(-11, 4);  ctx.lineTo(-10, 10);
-        ctx.moveTo(-7, 4);   ctx.lineTo(-10, 10);
-        // Front wishbones
-        ctx.moveTo(6, -2.5); ctx.lineTo(9.5, -9.5);
-        ctx.moveTo(11, -2);  ctx.lineTo(9.5, -9.5);
-        ctx.moveTo(6, 2.5);  ctx.lineTo(9.5, 9.5);
-        ctx.moveTo(11, 2);   ctx.lineTo(9.5, 9.5);
-        ctx.stroke();
-
-        // 4. 3D Sculpted Pirelli F1 Tires with cylindrical shading and colored sidewall rings
-        function draw3DTire(tx, ty, tw, th) {
-          ctx.save();
-          ctx.translate(tx, ty);
-          const tGrad = ctx.createLinearGradient(0, -th / 2, 0, th / 2);
-          tGrad.addColorStop(0, '#090d16');
-          tGrad.addColorStop(0.35, '#334155');
-          tGrad.addColorStop(0.7, '#1e293b');
-          tGrad.addColorStop(1, '#090d16');
-          ctx.fillStyle = tGrad;
-          ctx.beginPath();
-          ctx.roundRect(-tw / 2, -th / 2, tw, th, 2);
-          ctx.fill();
-          ctx.strokeStyle = '#020617';
-          ctx.lineWidth = 0.9;
-          ctx.stroke();
-
-          // Tire tread specular band
-          ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(-tw / 2 + 1, -0.5);
-          ctx.lineTo(tw / 2 - 1, -0.5);
-          ctx.stroke();
-          ctx.restore();
-        }
-
-        // Rear wide F1 tires & Front F1 tires
-        draw3DTire(-10.5, -10.8, 9.2, 5.6);
-        draw3DTire(-10.5, 10.8, 9.2, 5.6);
-        draw3DTire(9.5, -9.8, 7.8, 4.6);
-        draw3DTire(9.5, 9.8, 7.8, 4.6);
-
-        // 5. Sculpted 3D Sidepods & Engine Cover with metallic gradient
-        const bodyGrad = ctx.createLinearGradient(0, -8, 0, 8);
-        bodyGrad.addColorStop(0, darkCol);
-        bodyGrad.addColorStop(0.28, midCol);
-        bodyGrad.addColorStop(0.48, lightCol);
-        bodyGrad.addColorStop(0.72, midCol);
-        bodyGrad.addColorStop(1, darkCol);
-
-        ctx.fillStyle = bodyGrad;
-        ctx.beginPath();
-        ctx.moveTo(-14, -3.2);
-        ctx.lineTo(-6, -7.8);
-        ctx.lineTo(2.5, -7.2);
-        ctx.lineTo(5.5, -4.0);
-        ctx.lineTo(18.5, -1.6);
-        ctx.lineTo(19.5, 0);
-        ctx.lineTo(18.5, 1.6);
-        ctx.lineTo(5.5, 4.0);
-        ctx.lineTo(2.5, 7.2);
-        ctx.lineTo(-6, 7.8);
-        ctx.lineTo(-14, 3.2);
-        ctx.closePath();
-        ctx.fill();
-
-        // Sidepod radiator intakes (3D recessed dark ducts)
-        ctx.fillStyle = '#090d16';
-        ctx.beginPath();
-        ctx.moveTo(3.5, -6.6); ctx.lineTo(1.5, -4.0); ctx.lineTo(-1, -4.5); ctx.lineTo(1.5, -6.8); ctx.closePath();
-        ctx.moveTo(3.5, 6.6);  ctx.lineTo(1.5, 4.0);  ctx.lineTo(-1, 4.5);  ctx.lineTo(1.5, 6.8);  ctx.closePath();
-        ctx.fill();
-
-        // Central 3D Spine / Shark-fin Engine Cover & Specular Nose Ridge
-        const spineGrad = ctx.createLinearGradient(-14, -2, 18, 2);
-        spineGrad.addColorStop(0, darkCol);
-        spineGrad.addColorStop(0.5, lightCol);
-        spineGrad.addColorStop(1, '#ffffff');
-        ctx.strokeStyle = spineGrad;
-        ctx.lineWidth = 1.3;
-        ctx.beginPath();
-        ctx.moveTo(-13.5, 0);
-        ctx.lineTo(18, 0);
-        ctx.stroke();
-
-        // 6. Multi-element 3D Front Wing with endplates
-        const fwGrad = ctx.createLinearGradient(14, 0, 19, 0);
-        fwGrad.addColorStop(0, '#0f172a');
-        fwGrad.addColorStop(0.5, midCol);
-        fwGrad.addColorStop(1, lightCol);
-        ctx.fillStyle = fwGrad;
-        ctx.beginPath();
-        ctx.moveTo(14.5, -11.2);
-        ctx.lineTo(18.2, -10.2);
-        ctx.lineTo(19.2, 0);
-        ctx.lineTo(18.2, 10.2);
-        ctx.lineTo(14.5, 11.2);
-        ctx.lineTo(15.5, 0);
-        ctx.closePath();
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-        ctx.lineWidth = 0.8;
-        ctx.stroke();
-
-        // Front wing endplates
-        ctx.fillStyle = midCol;
-        ctx.fillRect(14.2, -11.6, 4.5, 1.4);
-        ctx.fillRect(14.2, 10.2, 4.5, 1.4);
-
-        // 7. 3D Dual-Element Rear Wing + DRS Actuator + Endplates
-        const rwGrad = ctx.createLinearGradient(-17.5, 0, -13, 0);
-        rwGrad.addColorStop(0, '#090d16');
-        rwGrad.addColorStop(0.6, midCol);
-        rwGrad.addColorStop(1, lightCol);
-        ctx.fillStyle = rwGrad;
-        ctx.fillRect(-17.2, -9.8, 4.2, 19.6);
-        ctx.strokeStyle = '#e2e8f0';
-        ctx.lineWidth = 0.7;
-        ctx.strokeRect(-17.2, -9.8, 4.2, 19.6);
-
-        // Rear wing endplates
-        ctx.fillStyle = darkCol;
-        ctx.fillRect(-17.8, -10.4, 5.2, 1.5);
-        ctx.fillRect(-17.8, 8.9, 5.2, 1.5);
-
-        // Blinking FIA Red Rear Rain / ERS Light (bright in rain/foggy or when moving)
+        // v9.3: karoserie ze sprite (predkreslena, zadne gradienty za snimek).
         const rainLightOn = (weather === 'rain' || weather === 'foggy')
           ? (Math.floor(performance.now() / 160) % 2 === 0)
           : true;
-        if (rainLightOn && !car.exploded) {
-          ctx.fillStyle = '#ff1e1e';
-          ctx.beginPath();
-          ctx.arc(-17.6, 0, 1.6, 0, Math.PI * 2);
-          ctx.fill();
-          if (weather === 'rain' || weather === 'foggy') {
-            const rlGlow = ctx.createRadialGradient(-18, 0, 1, -18, 0, 10);
-            rlGlow.addColorStop(0, 'rgba(255, 30, 30, 0.75)');
-            rlGlow.addColorStop(1, 'rgba(255, 30, 30, 0)');
-            ctx.fillStyle = rlGlow;
-            ctx.beginPath();
-            ctx.arc(-18, 0, 10, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-
-        // 8. Recessed Carbon Cockpit, Driver Helmet & Titanium 3D Halo Protection Bar
-        ctx.fillStyle = '#090d16';
-        ctx.beginPath();
-        ctx.ellipse(-1.0, 0, 5.2, 3.0, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Driver 3D Helmet with reflective visor
-        const helmGrad = ctx.createRadialGradient(-2.2, -0.8, 0.4, -1.8, 0, 2.7);
-        helmGrad.addColorStop(0, '#ffffff');
-        helmGrad.addColorStop(0.5, '#f5c518');
-        helmGrad.addColorStop(1, '#b45309');
-        ctx.fillStyle = helmGrad;
-        ctx.beginPath();
-        ctx.arc(-1.8, 0, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Visor strip
-        ctx.fillStyle = '#0284c7';
-        ctx.beginPath();
-        ctx.arc(-1.2, 0, 2.1, -0.7, 0.7);
-        ctx.fill();
-
-        // 3D Titanium Halo hoop over cockpit
-        ctx.strokeStyle = '#cbd5e1';
-        ctx.lineWidth = 1.3;
-        ctx.beginPath();
-        ctx.moveTo(-2.5, -2.6);
-        ctx.quadraticCurveTo(3.5, -2.3, 4.2, 0);
-        ctx.quadraticCurveTo(3.5, 2.3, -2.5, 2.6);
-        ctx.moveTo(4.2, 0);
-        ctx.lineTo(1.2, 0);
-        ctx.stroke();
-
+        const carSprite = getCarSprite(car.color, weather, rainLightOn, car.exploded);
+        ctx.save();
+        ctx.rotate(car.heading);
+        ctx.drawImage(carSprite, -CAR_SPRITE_CX, -CAR_SPRITE_CY);
         ctx.restore();
 
         // 9. Crisp 3D Floating Nameplate above car
@@ -2412,7 +2437,8 @@
         if (car.eliminated) label += ' [VYŘAZEN]';
         else if (car.exploded) label += ' [VYBOUCHL]';
 
-        const textW = ctx.measureText(label).width;
+        let textW = labelWidthCache.get(label);
+        if (textW === undefined) { textW = ctx.measureText(label).width; labelWidthCache.set(label, textW); }
         ctx.fillStyle = 'rgba(9, 13, 22, 0.82)';
         ctx.beginPath();
         ctx.roundRect(-textW / 2 - 6, -30, textW + 12, 17, 4);
@@ -2447,6 +2473,7 @@
             const perpY = Math.cos(car.heading);
 
             if (weather === 'rain' || car.off) {
+              if (tireParticles.length > 400) tireParticles.splice(0, tireParticles.length - 400);
               for (let side of [-1, 1]) {
                 tireParticles.push({
                   x: backX + perpX * (side * 8) + (Math.random() - 0.5) * 3,
@@ -2482,16 +2509,36 @@
         }
       }
 
-      // Render screen-space 3D weather overlays (Sunny warm sunbeams, Rain storm streaks, Foggy volumetric clouds)
-      function renderWeatherOverlay(ctx, cw, ch, dt, weather) {
+      // v9.3: celoobrazovkove gradienty pocasi se predkresli jednou na zmenu
+      // pocasi/velikosti, za snimek jen drawImage (plny gradient kazdy snimek je drahy).
+      let weatherOverlayCache = null; // {weather, cw, ch, canvas}
+      function getWeatherOverlayCanvas(weather, cw, ch) {
+        if (weatherOverlayCache && weatherOverlayCache.weather === weather && weatherOverlayCache.cw === cw && weatherOverlayCache.ch === ch) return weatherOverlayCache.canvas;
+        const cv = document.createElement('canvas');
+        cv.width = cw; cv.height = ch;
+        const c = cv.getContext('2d');
         if (weather === 'sunny') {
-          // Warm directional sunlight glow from top-left + subtle vignette
-          const sunGrad = ctx.createRadialGradient(cw * 0.15, ch * 0.12, 10, cw * 0.15, ch * 0.12, Math.max(cw, ch) * 0.75);
+          const sunGrad = c.createRadialGradient(cw * 0.15, ch * 0.12, 10, cw * 0.15, ch * 0.12, Math.max(cw, ch) * 0.75);
           sunGrad.addColorStop(0, 'rgba(254, 240, 138, 0.16)');
           sunGrad.addColorStop(0.35, 'rgba(253, 224, 71, 0.06)');
           sunGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-          ctx.fillStyle = sunGrad;
-          ctx.fillRect(0, 0, cw, ch);
+          c.fillStyle = sunGrad;
+          c.fillRect(0, 0, cw, ch);
+        } else if (weather === 'foggy') {
+          const mistGrad = c.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * 0.22, cw / 2, ch / 2, Math.max(cw, ch) * 0.72);
+          mistGrad.addColorStop(0, 'rgba(203, 213, 225, 0.08)');
+          mistGrad.addColorStop(1, 'rgba(148, 163, 184, 0.34)');
+          c.fillStyle = mistGrad;
+          c.fillRect(0, 0, cw, ch);
+        }
+        weatherOverlayCache = { weather, cw, ch, canvas: cv };
+        return cv;
+      }
+
+      // Render screen-space 3D weather overlays (Sunny warm sunbeams, Rain storm streaks, Foggy volumetric clouds)
+      function renderWeatherOverlay(ctx, cw, ch, dt, weather) {
+        if (weather === 'sunny') {
+          ctx.drawImage(getWeatherOverlayCanvas(weather, cw, ch), 0, 0);
         } else if (weather === 'rain') {
           // Cool overcast atmosphere tint
           ctx.fillStyle = 'rgba(15, 23, 42, 0.22)';
@@ -2534,12 +2581,8 @@
             ctx.arc(sx, sy, sr, 0, Math.PI * 2);
             ctx.fill();
           }
-          // Soft horizon mist veil
-          const mistGrad = ctx.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * 0.22, cw / 2, ch / 2, Math.max(cw, ch) * 0.72);
-          mistGrad.addColorStop(0, 'rgba(203, 213, 225, 0.08)');
-          mistGrad.addColorStop(1, 'rgba(148, 163, 184, 0.34)');
-          ctx.fillStyle = mistGrad;
-          ctx.fillRect(0, 0, cw, ch);
+          // Soft horizon mist veil (cached)
+          ctx.drawImage(getWeatherOverlayCanvas(weather, cw, ch), 0, 0);
           ctx.restore();
         }
       }
@@ -2549,33 +2592,48 @@
         renderMinimap();
       }
 
+      // v9.3: podklad minimapy (pozadi + tah trati) se predkresli jednou na trat,
+      // za snimek jen drawImage + tecky aut.
+      let minimapBase = null; // {track, canvas}
       function renderMinimap() {
         const ctx = minimapCanvas.getContext('2d');
         const w = minimapCanvas.width;
         const h = minimapCanvas.height;
-        ctx.clearRect(0, 0, w, h);
-        ctx.fillStyle = '#090d16';
-        ctx.fillRect(0, 0, w, h);
-
-        if (!trackData || !trackData.center) return;
-
+        if (!trackData || !trackData.center) {
+          ctx.clearRect(0, 0, w, h);
+          ctx.fillStyle = '#090d16';
+          ctx.fillRect(0, 0, w, h);
+          return;
+        }
+        if (!minimapBase || minimapBase.track !== trackData) {
+          const bc = document.createElement('canvas');
+          bc.width = w; bc.height = h;
+          const b = bc.getContext('2d');
+          b.fillStyle = '#090d16';
+          b.fillRect(0, 0, w, h);
+          const sx = w / WORLD_W;
+          const sy = h / WORLD_H;
+          b.save();
+          b.scale(sx, sy);
+          b.strokeStyle = '#64748b';
+          b.lineWidth = ROAD_HALF * 1.6;
+          b.lineCap = 'round';
+          b.lineJoin = 'round';
+          b.beginPath();
+          b.moveTo(trackData.center[0].x, trackData.center[0].y);
+          for (let i = 1; i < trackData.center.length; i++) {
+            b.lineTo(trackData.center[i].x, trackData.center[i].y);
+          }
+          b.closePath();
+          b.stroke();
+          b.restore();
+          minimapBase = { track: trackData, canvas: bc };
+        }
+        ctx.drawImage(minimapBase.canvas, 0, 0);
         const sx = w / WORLD_W;
         const sy = h / WORLD_H;
-
         ctx.save();
         ctx.scale(sx, sy);
-
-        ctx.strokeStyle = '#64748b';
-        ctx.lineWidth = ROAD_HALF * 1.6;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(trackData.center[0].x, trackData.center[0].y);
-        for (let i = 1; i < trackData.center.length; i++) {
-          ctx.lineTo(trackData.center[i].x, trackData.center[i].y);
-        }
-        ctx.closePath();
-        ctx.stroke();
 
         const myMapCar = renderCars.get(myId);
         const isDeadMap = myMapCar && (myMapCar.eliminated || myMapCar.exploded);
@@ -2766,8 +2824,18 @@
           // Render tire spray / dust particles
           updateAndRenderTireParticles(ctx, dt, activeWeather);
 
+          // v9.3: auta mimo vyrez kamery se vubec nekresli (rozjety zavod).
+          let viewRect = null;
+          if (spectateCenter) {
+            const hw = cw / 2 / spectateZoom, hh = ch / 2 / spectateZoom;
+            viewRect = { x0: spectateCenter.x - hw - 60, x1: spectateCenter.x + hw + 60, y0: spectateCenter.y - hh - 60, y1: spectateCenter.y + hh + 60 };
+          } else if (focusCar) {
+            const hw = cw / 2 / zoom, hh = ch / 2 / zoom;
+            viewRect = { x0: focusCar.x - hw - 60, x1: focusCar.x + hw + 60, y0: focusCar.y - hh - 60, y1: focusCar.y + hh + 60 };
+          }
           // Draw all 3D Formula 1 cars; v mlze se soupeři mimo 50 % dosah nekreslí.
           for (const car of renderCars.values()) {
+            if (viewRect && (car.x < viewRect.x0 || car.x > viewRect.x1 || car.y < viewRect.y0 || car.y > viewRect.y1)) continue;
             if (activeWeather === 'foggy' && !isDeadSpectator && focusCar && car.id !== focusCar.id) {
               const dFog = Math.hypot(car.x - focusCar.x, car.y - focusCar.y);
               if (dFog > viewSpan / 2) continue;
