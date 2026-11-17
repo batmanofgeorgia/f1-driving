@@ -314,7 +314,7 @@ function buildAndValidateTrack(rawPoints) {
     y: Math.round(p.y * 10) / 10
   }));
 
-  const poly = [...left, ...right.slice().reverse()];
+  const poly = [...left, ...right.toReversed()];
 
   return {
     ok: true,
@@ -600,7 +600,7 @@ function updateCarRankings() {
     }
   });
 
-  const sorted = cars.slice().sort((a, b) => {
+  const sorted = cars.toSorted((a, b) => {
     if (a.finished && b.finished) return a.elapsed - b.elapsed;
     if (a.finished !== b.finished) return a.finished ? -1 : 1;
 
@@ -632,7 +632,7 @@ function finishRace() {
   updateCarRankings();
 
   const cars = players.map(p => p.car).filter(Boolean);
-  const sorted = cars.slice().sort((a, b) => a.rank - b.rank);
+  const sorted = cars.toSorted((a, b) => a.rank - b.rank);
 
   const winnerTime = sorted.find(c => c.finished) ? sorted.find(c => c.finished).elapsed : null;
   lastResults = sorted.map((c, idx) => {

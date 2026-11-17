@@ -111,6 +111,7 @@ Zvuk je generovaný přímo v prohlížeči přes WebAudio, žádné zvukové so
 - **Inteligentní jízda a předjíždění**: boti na serveru pri 60 Hz vyhodnocují křivost nadcházejících zatáček na libovolné nakreslené trati, přibrzďují do ostrých oblouků a za deště a snaží se s bočním odstupem předjíždět pomalejší auta před sebou.
 - **Plnohodnotné režimy i pro 1 hráče**: jakmile jsou na roštu alespoň 2 vozy (např. 1 člověk + 1 či více AI botů), odemknou se všechny herní režimy (**Časovka**, **Vyřazování**, **Výbuch**) i **Kvalifikace na 1 kolo**.
 - **v9.3 – plynulost se 7 boty**: karoserie aut se předkreslí do spritu (jeden canvas na barvu/počasí), takže za snímek stačí jeden otočený `drawImage` místo ~8 gradientů na auto; auta mimo výřez kamery se nekreslí vůbec, gradienty počasí a podklad minimapy se cachují a HUD se aktualizuje max 10× za sekundu. Opravuje sekání a ztrátu zatáčení při 7 botech (klient zpracovával jen ~12 stavů/s, server přitom posílal 60/s).
+- **v9.4 – modernizace podle Modern Web Guidance**: Enter v poli jména nově ignoruje skládání znaku přes IME (`isComposing` / `keyCode 229`), takže hráče nepřipojí uprostřed psaní; mazání obsahu seznamů přes `replaceChildren()` místo `innerHTML = ''` (žádný HTML parser, připraveno na Trusted Types); řazení polí přes `toSorted()` / `toReversed()` místo kopírování přes `slice()`.
 
 ## Ovládání
 

@@ -938,8 +938,8 @@
       const startLightsEl = document.getElementById('startLights');
       function updateLeaderboard() {
         if (!leaderboardEl || !serverState || !serverState.cars) return;
-        const sorted = serverState.cars.slice().sort(function(a, b) { return (a.rank || 99) - (b.rank || 99); });
-        leaderboardEl.innerHTML = '';
+        const sorted = serverState.cars.toSorted(function(a, b) { return (a.rank || 99) - (b.rank || 99); });
+        leaderboardEl.replaceChildren();
         sorted.forEach(function(car) {
           const row = document.createElement('div');
           row.className = 'lb-row';
@@ -1170,7 +1170,9 @@
       joinBtn.addEventListener('click', connectAndJoin);
       joinBtn.addEventListener('click', ensureAudio);
       playerNameInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') connectAndJoin();
+        if (e.key !== 'Enter') return;
+        if (e.isComposing || e.keyCode === 229) return;
+        connectAndJoin();
       });
 
       function sendMsg(obj) {
@@ -1371,7 +1373,7 @@
         const currentBotDiff = lobbyState.botDifficulty || 'medium';
 
         playerCountLabel.textContent = String(list.length);
-        playersList.innerHTML = '';
+        playersList.replaceChildren();
 
         list.forEach(p => {
           const item = document.createElement('div');
@@ -1516,7 +1518,7 @@
       function renderFavList() {
         if (!favTracksListEl) return;
         const favs = loadFavTracks();
-        favTracksListEl.innerHTML = '';
+        favTracksListEl.replaceChildren();
         if (favs.length === 0) {
           const empty = document.createElement('div');
           empty.style.cssText = 'text-align:center; font-size:12px; color:#94a3b8;';
@@ -2905,7 +2907,7 @@
 
       // Render qualifying grid screen
       function renderQualScreen(results) {
-        resultsList.innerHTML = '';
+        resultsList.replaceChildren();
         results.forEach(r => {
           const row = document.createElement('div');
           row.className = 'result-row';
@@ -2929,7 +2931,7 @@
 
       // Render finish screen results
       function renderFinishScreen(results) {
-        resultsList.innerHTML = '';
+        resultsList.replaceChildren();
         results.forEach(r => {
           const row = document.createElement('div');
           row.className = 'result-row';
