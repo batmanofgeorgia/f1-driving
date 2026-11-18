@@ -1532,8 +1532,8 @@ function getLocalIPv4Addresses() {
 
 server.listen(PORT, HOST, () => {
   console.log('==================================================');
-  console.log('F1 Driving v9 server běží! (AI boti, 4 obtížnosti, všechny režimy i pro 1 hráče s boty)');
-  console.log('Pokud v lobby nevidíš v9, běží starý server, ne tento.');
+  console.log('F1 Driving v9.5 server běží! (minimální lobby pro hosty, responzivní ovládání)');
+  console.log('Pokud v lobby nevidíš v9.5, běží starý server, ne tento.');
   console.log(`Na tomto (hostitelském) telefonu otevřete: http://localhost:${PORT}`);
   const ips = getLocalIPv4Addresses();
   if (ips.length > 0) {

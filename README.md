@@ -1,4 +1,10 @@
-# F1 Driving v9
+# F1 Driving v9.5
+
+## Nové ve v9.5
+
+- **Minimální lobby pro hosty**: hosté v lobby vidí jen seznam jezdců, vybraný režim („Režim: Časovka / Vyřazování / Výbuch"), náhled mapy a hlášku, že se čeká na hostitele. Volby počtu botů, obtížnosti, režimu, rychlosti, počasí, velikosti mapy, kvalifikace a oblíbené tratě vidí jen hostitel. Hostům zůstává jejich vlastní volba zvuku motoru (F1 / V8 / Elektro).
+- **Lobby se posouvá odshora**: lobby už není vycentrovaná na střed displeje, takže se na menším telefonu neořízne horní část a lobby jde normálně posouvat dolů.
+- **Responzivní ovládání (plyn zůstává)**: velikost a poloha volantu i plynu se počítají z šířky displeje místo pevných pixelů, takže se volant s plynem na úzkém telefonu nepřekrývají. Ověřeno v headless Chromu: mezera mezi volantem a plynem je 54 px na šířce 320 px, 61 px na 360 px, 66 px na 390 px a 70 px na 412 px (ve v9.4 byl na 360 px překryv 47 px). Dotyková zóna volantu navíc končí před plynem, takže dotyk v oblasti plynu už neblokuje řízení.
 
 Lokální multiplayerová závodní hra Formule 1 pro 1 až 8 hráčů (nebo 1 hráče + až 7 AI botů) na telefonech připojených ke stejné Wi-Fi síti. Hra nepotřebuje žádný účet, přihlášení ani připojení k internetu. Jeden telefon s aplikací Termux slouží jako hostitelský server.
 

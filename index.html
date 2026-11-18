@@ -42,6 +42,34 @@
       justify-content: center;
     }
 
+    /* v9.5: lobby starts at the top and scrolls normally (centered flex clipped tall cards) */
+    #lobbyScreen.active {
+      justify-content: flex-start;
+    }
+
+    /* v9.5: responsive race controls — sizes scale with viewport width so wheel and gas never overlap */
+    :root {
+      --wheel-size: clamp(110px, 38vw, 160px);
+      --wheel-left: clamp(10px, 4vw, 52px);
+      --wheel-bottom: clamp(12px, 3vw, 28px);
+      --gas-w: clamp(120px, 38vw, 175px);
+      --gas-h: clamp(140px, 46vw, 210px);
+      --gas-right: clamp(10px, 3vw, 20px);
+      --gas-bottom: clamp(10px, 3vw, 24px);
+    }
+
+    .guest-summary {
+      background: #090d16;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
     .card {
       background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%);
       border: 1px solid rgba(255, 255, 255, 0.14);
@@ -455,24 +483,25 @@
       display: none;
     }
 
-    /* Touch steering zone: 62% of screen width */
+    /* Touch steering zone: 62% of screen width, but never under the gas pedal (v9.5) */
     #steeringZone {
       position: fixed;
       left: 0;
       bottom: 0;
-      width: 62vw;
+      width: calc(100vw - var(--gas-w) - 48px);
+      max-width: 62vw;
       height: 68vh;
       z-index: 30;
       touch-action: none;
     }
 
-    /* Steering wheel: 52 px from left edge, 28 px from bottom, size 160 x 160 px, opacity 0.2 idle, 0.6 held */
+    /* Steering wheel: responsive size/position (v9.5), opacity 0.2 idle, 0.6 held */
     #steeringWheel {
       position: fixed;
-      left: 52px;
-      bottom: 28px;
-      width: 160px;
-      height: 160px;
+      left: var(--wheel-left);
+      bottom: var(--wheel-bottom);
+      width: var(--wheel-size);
+      height: var(--wheel-size);
       opacity: 0.2;
       pointer-events: none;
       z-index: 31;
@@ -484,14 +513,14 @@
       opacity: 0.6;
     }
 
-    /* Gas pedal: 175 x 210 px, font size 26 px, opacity 0.2 idle, 0.6 while pressed */
+    /* Gas pedal: responsive size/position (v9.5), opacity 0.2 idle, 0.6 while pressed */
     #gasPedal {
       position: fixed;
-      right: 20px;
-      bottom: 24px;
-      width: 175px;
-      height: 210px;
-      font-size: 26px;
+      right: var(--gas-right);
+      bottom: var(--gas-bottom);
+      width: var(--gas-w);
+      height: var(--gas-h);
+      font-size: clamp(18px, 6vw, 26px);
       font-weight: 900;
       color: #ffffff;
       background: linear-gradient(180deg, #334155 0%, #1e293b 50%, #0f172a 100%);
@@ -583,7 +612,7 @@
   <div id="lobbyScreen" class="screen">
     <div class="card">
       <h1>F1 Driving</h1>
-      <p style="text-align:center; font-size:13px; color:#f5c518;">v9 – AI boti, 4 obtížnosti a plnohodnotné závody i v 1 hráči</p>
+      <p style="text-align:center; font-size:13px; color:#f5c518;">v9.5 – minimální lobby pro hosty, responzivní ovládání</p>
       <div id="lobbyError" class="error-banner"></div>
 
       <div class="lobby-grid">
@@ -592,7 +621,12 @@
           <div id="playersList" class="players-list"></div>
         </div>
 
-        <div>
+        <div id="guestSummary" class="guest-summary" style="display:none;">
+          <div>Režim: <span id="guestModeLabel">—</span></div>
+          <div>Mapa: <span id="guestMapLabel">—</span></div>
+        </div>
+
+        <div class="host-only">
           <div class="section-title">Počet AI botů (0 až 7, do max. 8 aut)</div>
           <div class="segmented-group" style="grid-template-columns: repeat(8, 1fr);">
             <button class="seg-btn bot-count-btn" data-bots="0">0</button>
@@ -606,7 +640,7 @@
           </div>
         </div>
 
-        <div>
+        <div class="host-only">
           <div class="section-title">Obtížnost AI botů</div>
           <div class="segmented-group" style="grid-template-columns: repeat(4, 1fr);">
             <button class="seg-btn bot-diff-btn" data-bot-diff="easy">Lehká</button>
@@ -616,7 +650,7 @@
           </div>
         </div>
 
-        <div>
+        <div class="host-only">
           <div class="section-title">Herní režim</div>
           <div class="segmented-group">
             <button class="seg-btn mode-btn" data-mode="time">Časovka</button>
@@ -625,7 +659,7 @@
           </div>
         </div>
 
-        <div>
+        <div class="host-only">
           <div class="section-title">Rychlost formulí</div>
           <div class="segmented-group">
             <button class="seg-btn speed-btn" data-speed="slow">Pomalé</button>
@@ -634,7 +668,7 @@
           </div>
         </div>
 
-        <div>
+        <div class="host-only">
           <div class="section-title">Počasí na trati</div>
           <div class="segmented-group">
             <button class="seg-btn weather-btn" data-weather="sunny">Slunečno</button>
@@ -643,7 +677,7 @@
           </div>
         </div>
 
-        <div>
+        <div class="host-only">
           <div class="section-title">Velikost mapy</div>
           <div class="segmented-group">
             <button class="seg-btn map-size-btn" data-map-size="standard">Standardní 1600 × 900</button>
@@ -652,7 +686,7 @@
           <div style="text-align:center; font-size:12px; color:#94a3b8;">Změna velikosti mapy zruší nakreslenou trať, hostitel ji nakreslí znovu.</div>
         </div>
 
-        <div>
+        <div class="host-only">
           <div class="section-title">Kvalifikace před závodem</div>
           <div class="segmented-group">
             <button class="seg-btn qual-btn" data-qualifying="false">Rovnou závod</button>
@@ -661,7 +695,7 @@
           <div style="text-align:center; font-size:12px; color:#94a3b8;">Kvalifikace určí startovní rošt, pak se automaticky jede hlavní závod.</div>
         </div>
 
-        <div>
+        <div class="host-only">
           <div class="section-title">Oblíbené tratě (jen na tomto telefonu)</div>
           <input id="favTrackName" type="text" maxlength="30" placeholder="Název tratě" style="width:100%; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.25); background:#0f172a; color:#f8fafc; margin-bottom:6px;">
           <button id="saveFavBtn" class="btn btn-blue" style="width:100%; margin-bottom:6px;">Uložit aktuální trať jako oblíbenou</button>
@@ -691,7 +725,7 @@
         <div id="soloNote" style="text-align:center; font-size:13px; color:#f5c518; display:none;">
           Jedeš sám bez botů: je možná jen Časovka na 3 kola. Přidej AI boty pro Vyřazování, Výbuch a Kvalifikaci!
         </div>
-        <div id="weatherNote" style="text-align:center; font-size:13px; color:#94a3b8;">
+        <div id="weatherNote" class="host-only" style="text-align:center; font-size:13px; color:#94a3b8;">
           Déšť: grip 0,6× a maximální rychlost 0,9×. Mlha: viditelnost 50 % kolem vlastního auta.
         </div>
         <div id="guestLobbyNotice" style="text-align:center; font-size:13px; color:#94a3b8; display:none;">
@@ -1400,6 +1434,19 @@
           }
           playersList.appendChild(item);
         });
+
+        // v9.5: host-only sections are hidden for guests; guests see only the chosen mode and the map.
+        document.querySelectorAll('.host-only').forEach(el => { el.style.display = isHost ? 'block' : 'none'; });
+        const guestSummaryEl = document.getElementById('guestSummary');
+        if (guestSummaryEl) {
+          guestSummaryEl.style.display = isHost ? 'none' : 'flex';
+          const modeNames = { time: 'Časovka', elimination: 'Vyřazování', explosion: 'Výbuch' };
+          const mapNames = { standard: 'Standardní 1600 × 900', large: 'Velká 2400 × 1350' };
+          const gm = document.getElementById('guestModeLabel');
+          const gmp = document.getElementById('guestMapLabel');
+          if (gm) gm.textContent = modeNames[lobbyState.mode] || lobbyState.mode || '—';
+          if (gmp) gmp.textContent = mapNames[lobbyState.mapSize || 'standard'] || (lobbyState.mapSize || 'standard');
+        }
 
         document.querySelectorAll('.bot-count-btn').forEach(btn => {
           const countVal = Number(btn.dataset.bots);
